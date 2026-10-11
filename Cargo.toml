@@ -1,0 +1,25 @@
+[package]
+name = "orbital-integration-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Cross-crate tests that need the private compiler, the shared native-conformance suite or the template repos"
+
+[dependencies]
+
+[dev-dependencies]
+orbital-core = { path = "../orbital-core" }
+orbital-compiler = { path = "../orbital-compiler" }
+orbital-verify = { path = "../orbital-verify" }
+orbital-test-support = { path = "../orbital-test-support" }
+orbital-ffi = { path = "../orbital-ffi" }
+orbital-canvas = { path = "../orbital-canvas" }
+orbital-shell-typescript = { path = "../orbital-shell-typescript" }
+orbital-shell-python = { path = "../orbital-shell-python" }
+orbital-shell-rust = { path = "../orbital-shell-rust" }
+orbital-shell-ios = { path = "../orbital-shell-ios" }
+orbital-shell-android = { path = "../orbital-shell-android" }
+orbital-shell-mobile = { path = "../orbital-shell-mobile" }
+orbital-shell-chrome = { path = "../orbital-shell-chrome" }
+serde_json.workspace = true
