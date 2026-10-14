@@ -4,9 +4,7 @@
 //! enumeration table (`orbital-rust/docs/Orbital_Type_Chain_Table.md`) AS
 //! AMENDED by Phase 2 (`docs/Almadar_Compiler_Spec.md`) and Phase 3 (gaps
 //! §130): Phase 2 moved Kotlin/Swift/Python/Rust `Union` (all four), plus
-//! `Struct`/`File` in Python/Rust, from Lossy to Faithful; Phase 3 made
-//! `Scalar` Faithful in Kotlin (JsonPrimitive), Swift (4-case Codable enum),
-//! Python (`Union[str, float, bool, None]`), and Rust (untagged enum), and
+//! `Struct`/`File` in Python/Rust, from Lossy to Faithful; Phase 3
 //! reclassified `Node` as Widening in Kotlin/Swift/Python (the json carrier
 //! preserves the tree STRUCTURE, erasing only the pattern TYPE; typed
 //! PatternNode codegen is deferred, riding on named_types), and Phase 3D
@@ -74,7 +72,6 @@ fn table() -> Vec<Row> {
         // (JsonPrimitive), Swift (4-case Codable enum), Python
         // (`Union[str, float, bool, None]`), and Rust (`#[serde(untagged)]`
         // enum) spell it now too — all four flipped Lossy→Faithful.
-        Row { name: "Scalar", ty: OirType::Scalar, ts: F, kotlin: F, swift: F, python: F, rust: F },
         // TS has the canonical `PatternValue` (Faithful). Phase 3: the json
         // carrier preserves the tree STRUCTURE and erases only the pattern
         // TYPE — Widening in Kotlin/Swift/Python; Rust keeps Lossy per the
@@ -162,7 +159,7 @@ fn every_variant_matches_the_enumeration_table_per_shell() {
 #[test]
 fn per_shell_counts_match_the_table_summary() {
     let rows = table();
-    assert_eq!(rows.len(), 26, "the table enumerates 26 OirType variants");
+    assert_eq!(rows.len(), 25, "the table enumerates 25 OirType variants");
     let count = |f: fn(&Row) -> TypeMappingClass| {
         let mut counts = (0, 0, 0);
         for row in &rows {
@@ -176,11 +173,11 @@ fn per_shell_counts_match_the_table_summary() {
     };
     // (faithful, widening, lossy) per the Phase-3D-amended summary (TypeRef
     // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust).
-    assert_eq!(count(|r| r.ts), (15, 10, 1), "TypeScript");
-    assert_eq!(count(|r| r.kotlin), (11, 13, 2), "Kotlin");
-    assert_eq!(count(|r| r.swift), (12, 12, 2), "Swift");
-    assert_eq!(count(|r| r.python), (14, 10, 2), "Python");
-    assert_eq!(count(|r| r.rust), (13, 11, 2), "Rust");
+    assert_eq!(count(|r| r.ts), (14, 10, 1), "TypeScript");
+    assert_eq!(count(|r| r.kotlin), (10, 13, 2), "Kotlin");
+    assert_eq!(count(|r| r.swift), (11, 12, 2), "Swift");
+    assert_eq!(count(|r| r.python), (13, 10, 2), "Python");
+    assert_eq!(count(|r| r.rust), (12, 11, 2), "Rust");
 }
 
 #[test]
