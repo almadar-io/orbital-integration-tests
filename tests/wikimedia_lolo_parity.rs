@@ -15,6 +15,7 @@ const SPEC: ParitySpec = ParitySpec {
         input: "WIKIMEDIA_GET_PAGE",
         result: "WIKIMEDIA_PAGE_RESULT",
         failure: Some("WIKIMEDIA_PAGE_FAILURE"),
+        data_field: None,
     }],
     env_knobs: &[("WIKIMEDIA_USER_AGENT", "userAgent"), ("WIKIMEDIA_TIMEOUT_MS", "timeoutMs")],
     secret_env: &[],

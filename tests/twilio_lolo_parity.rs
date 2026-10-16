@@ -11,8 +11,8 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "TwilioClient",
     fixtures_dir: "twilio",
     events: &[
-        ActionEvents { action: "sendSMS", input: "TWILIO_SEND_SMS", result: "TWILIO_SMS_RESULT", failure: Some("TWILIO_SMS_FAILED") },
-        ActionEvents { action: "sendWhatsApp", input: "TWILIO_SEND_WHATSAPP", result: "TWILIO_WHATSAPP_RESULT", failure: Some("TWILIO_WHATSAPP_FAILED") },
+        ActionEvents { action: "sendSMS", input: "TWILIO_SEND_SMS", result: "TWILIO_SMS_RESULT", failure: Some("TWILIO_SMS_FAILED"), data_field: None },
+        ActionEvents { action: "sendWhatsApp", input: "TWILIO_SEND_WHATSAPP", result: "TWILIO_WHATSAPP_RESULT", failure: Some("TWILIO_WHATSAPP_FAILED"), data_field: None },
     ],
     env_knobs: &[("TWILIO_ACCOUNT_SID", "accountSid"), ("TWILIO_PHONE_NUMBER", "phoneNumber")],
     secret_env: &["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"],

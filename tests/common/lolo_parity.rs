@@ -31,6 +31,8 @@ pub struct ActionEvents {
     pub input: &'static str,
     pub result: &'static str,
     pub failure: Option<&'static str>,
+    /// The provider's result is not a record: the atom carries it under this result field.
+    pub data_field: Option<&'static str>,
 }
 
 pub struct ParitySpec {
@@ -872,7 +874,12 @@ impl<'a> ParitySession<'a> {
                 if let Effect::Emit { event, payload } = &effect.effect {
                     let value = by_value(serde_json::to_value(payload).expect("payload json"));
                     if event == events.result {
-                        results.push(value);
+                        results.push(match events.data_field {
+                            Some(field) => value.get(field).cloned().unwrap_or_else(|| {
+                                panic!("{}: result has no `{field}` field: {value}", replay.case)
+                            }),
+                            None => value,
+                        });
                     } else if events.failure.is_some_and(|f| f == event) {
                         failures.push(value);
                     }

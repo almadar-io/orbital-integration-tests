@@ -14,12 +14,12 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "LlmClient",
     fixtures_dir: "llm",
     events: &[
-        ActionEvents { action: "generate", input: "LLM_GENERATE", result: "LLM_GENERATE_RESULT", failure: Some("LLM_FAILED") },
-        ActionEvents { action: "classify", input: "LLM_CLASSIFY", result: "LLM_CLASSIFY_RESULT", failure: Some("LLM_FAILED") },
-        ActionEvents { action: "classifyMany", input: "LLM_CLASSIFY_MANY", result: "LLM_CLASSIFY_MANY_RESULT", failure: Some("LLM_FAILED") },
-        ActionEvents { action: "summarize", input: "LLM_SUMMARIZE", result: "LLM_SUMMARIZE_RESULT", failure: Some("LLM_FAILED") },
-        ActionEvents { action: "embed", input: "LLM_EMBED", result: "LLM_EMBED_RESULT", failure: Some("LLM_FAILED") },
-        ActionEvents { action: "choose", input: "LLM_CHOOSE", result: "LLM_CHOOSE_RESULT", failure: Some("LLM_FAILED") },
+        ActionEvents { action: "generate", input: "LLM_GENERATE", result: "LLM_GENERATE_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "classify", input: "LLM_CLASSIFY", result: "LLM_CLASSIFY_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "classifyMany", input: "LLM_CLASSIFY_MANY", result: "LLM_CLASSIFY_MANY_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "summarize", input: "LLM_SUMMARIZE", result: "LLM_SUMMARIZE_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "embed", input: "LLM_EMBED", result: "LLM_EMBED_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "choose", input: "LLM_CHOOSE", result: "LLM_CHOOSE_RESULT", failure: Some("LLM_FAILED"), data_field: None },
     ],
     env_knobs: &[
         ("KNOB_PROVIDER", "provider"),

@@ -27,6 +27,7 @@ const SPEC: ParitySpec = ParitySpec {
         input: "KNOWLEDGE_CURRENT_TOPICS",
         result: "KNOWLEDGE_TOPICS_RESULT",
         failure: Some("KNOWLEDGE_TOPICS_FAILED"),
+        data_field: None,
     }],
     env_knobs: &[],
     secret_env: &[REFRESH],

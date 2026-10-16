@@ -18,12 +18,12 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "StorageClient",
     fixtures_dir: "storage",
     events: &[
-        ActionEvents { action: "upload", input: "STORAGE_UPLOAD", result: "STORAGE_UPLOADED", failure: FAILED },
-        ActionEvents { action: "uploadMany", input: "STORAGE_UPLOAD_MANY", result: "STORAGE_UPLOADED_MANY", failure: FAILED },
-        ActionEvents { action: "download", input: "STORAGE_DOWNLOAD", result: "STORAGE_DOWNLOADED", failure: FAILED },
-        ActionEvents { action: "list", input: "STORAGE_LIST", result: "STORAGE_LISTED", failure: FAILED },
-        ActionEvents { action: "delete", input: "STORAGE_DELETE", result: "STORAGE_DELETED", failure: FAILED },
-        ActionEvents { action: "getSignedUrl", input: "STORAGE_GET_SIGNED_URL", result: "STORAGE_SIGNED_URL", failure: FAILED },
+        ActionEvents { action: "upload", input: "STORAGE_UPLOAD", result: "STORAGE_UPLOADED", failure: FAILED, data_field: None },
+        ActionEvents { action: "uploadMany", input: "STORAGE_UPLOAD_MANY", result: "STORAGE_UPLOADED_MANY", failure: FAILED, data_field: None },
+        ActionEvents { action: "download", input: "STORAGE_DOWNLOAD", result: "STORAGE_DOWNLOADED", failure: FAILED, data_field: None },
+        ActionEvents { action: "list", input: "STORAGE_LIST", result: "STORAGE_LISTED", failure: FAILED, data_field: None },
+        ActionEvents { action: "delete", input: "STORAGE_DELETE", result: "STORAGE_DELETED", failure: FAILED, data_field: None },
+        ActionEvents { action: "getSignedUrl", input: "STORAGE_GET_SIGNED_URL", result: "STORAGE_SIGNED_URL", failure: FAILED, data_field: None },
     ],
     env_knobs: &[],
     secret_env: &["STORAGE_ACCESS_KEY_ID", "STORAGE_SECRET_ACCESS_KEY"],
@@ -146,7 +146,7 @@ fn check(step: &Value) {
     session(step).check(step, ReplayStep { at_ms: Some(at), ..ReplayStep::default() });
 }
 
-fn listed(names: &[&str]) -> impl Fn(&Value) -> bool + '_ {
+fn listed<'a>(names: &'a [&'a str]) -> impl Fn(&Value) -> bool + 'a {
     move |step| names.contains(&name(step))
 }
 

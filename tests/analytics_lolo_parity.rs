@@ -3,6 +3,9 @@
 // Browser facts come from the fixture's `page` (D-A87 `browser/page-facts`); delivery is `browser/beacon`.
 // The collector is the atom's `endpoint` url knob (a beacon URL is a literal or a url knob), so a fixture's `endpoint`
 // param becomes that knob's value and the atom's internal events carry no endpoint.
+// Divergence pending owner ruling (D-A87 beacon): the beacon is a text/plain POST with no `accept` header (sendBeacon cannot set one),
+// where the provider's fetch recorded `accept: */*`; `adapted` drops the recorded `accept` and `accept` stays compared,
+// so an atom that sent any `accept` would still fail.
 
 #[path = "common/lolo_parity.rs"]
 mod lolo_parity;
@@ -17,8 +20,8 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "Analytics",
     fixtures_dir: "analytics",
     events: &[
-        ActionEvents { action: "pageview", input: "ANALYTICS_PAGEVIEW", result: "REPORTED", failure: Some("ANALYTICS_FAILED") },
-        ActionEvents { action: "track", input: "ANALYTICS_TRACK", result: "REPORTED", failure: Some("ANALYTICS_FAILED") },
+        ActionEvents { action: "pageview", input: "ANALYTICS_PAGEVIEW", result: "REPORTED", failure: Some("ANALYTICS_FAILED"), data_field: None },
+        ActionEvents { action: "track", input: "ANALYTICS_TRACK", result: "REPORTED", failure: Some("ANALYTICS_FAILED"), data_field: None },
     ],
     env_knobs: &[("ANALYTICS_COLLECTOR", "endpoint")],
     secret_env: &[],
@@ -40,6 +43,9 @@ fn adapted(mut fixture: Json) -> Json {
     resolve_base(&mut fixture);
     let endpoint = fixture["params"].as_object_mut().expect("params").remove("endpoint").expect("endpoint param");
     fixture["env"]["ANALYTICS_COLLECTOR"] = endpoint;
+    for exchange in fixture["exchanges"].as_array_mut().expect("exchanges") {
+        exchange["request"]["headers"].as_object_mut().expect("headers").remove("accept");
+    }
     fixture
 }
 

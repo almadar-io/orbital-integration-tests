@@ -15,9 +15,9 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "EsignClient",
     fixtures_dir: "esign",
     events: &[
-        ActionEvents { action: "sendEnvelope", input: "ESIGN_SEND_ENVELOPE", result: "ESIGN_ENVELOPE_SENT", failure: Some("ESIGN_SEND_ENVELOPE_FAILED") },
-        ActionEvents { action: "getEnvelopeStatus", input: "ESIGN_GET_ENVELOPE_STATUS", result: "ESIGN_ENVELOPE_STATUS", failure: Some("ESIGN_GET_ENVELOPE_STATUS_FAILED") },
-        ActionEvents { action: "downloadDocument", input: "ESIGN_DOWNLOAD_DOCUMENT", result: "ESIGN_DOCUMENT_DOWNLOADED", failure: Some("ESIGN_DOWNLOAD_DOCUMENT_FAILED") },
+        ActionEvents { action: "sendEnvelope", input: "ESIGN_SEND_ENVELOPE", result: "ESIGN_ENVELOPE_SENT", failure: Some("ESIGN_SEND_ENVELOPE_FAILED"), data_field: None },
+        ActionEvents { action: "getEnvelopeStatus", input: "ESIGN_GET_ENVELOPE_STATUS", result: "ESIGN_ENVELOPE_STATUS", failure: Some("ESIGN_GET_ENVELOPE_STATUS_FAILED"), data_field: None },
+        ActionEvents { action: "downloadDocument", input: "ESIGN_DOWNLOAD_DOCUMENT", result: "ESIGN_DOCUMENT_DOWNLOADED", failure: Some("ESIGN_DOWNLOAD_DOCUMENT_FAILED"), data_field: None },
     ],
     env_knobs: &[("DOCUSIGN_BASE_PATH", "basePath")],
     secret_env: &["DOCUSIGN_ACCESS_TOKEN"],

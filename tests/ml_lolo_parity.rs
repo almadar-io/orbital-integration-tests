@@ -15,6 +15,7 @@ const SPEC: ParitySpec = ParitySpec {
         input: "ML_INFER",
         result: "ML_INFERRED",
         failure: Some("ML_INFER_FAILED"),
+        data_field: None,
     }],
     env_knobs: &[("MASAR_ML_TRAIT", "traitName"), ("MASAR_ML_TIMEOUT_MS", "timeoutMs")],
     secret_env: &[],

@@ -65,6 +65,8 @@ fn table() -> Vec<Row> {
         // since the Phase-2 named-struct fix), Lossy only where the struct arm
         // still erases (none today).
         Row { name: "File", ty: OirType::File, ts: F, kotlin: F, swift: F, python: F, rust: F },
+        // `bytes` renders as base64 text in every target — the binary meaning is erased (W).
+        Row { name: "Bytes", ty: OirType::Bytes, ts: W, kotlin: W, swift: W, python: W, rust: W },
         // TS Declared `Record<string, FieldValue | undefined>` is the shapeless
         // record — Lossy; Rust's `serde_json::Value` is the one faithful json.
         Row { name: "Json", ty: OirType::Json, ts: L, kotlin: L, swift: L, python: L, rust: F },

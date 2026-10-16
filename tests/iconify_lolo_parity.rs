@@ -11,9 +11,9 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "IconifyClient",
     fixtures_dir: "iconify",
     events: &[
-        ActionEvents { action: "svgExists", input: "ICONIFY_SVG_EXISTS", result: "ICONIFY_SVG_EXISTS_RESULT", failure: None },
-        ActionEvents { action: "search", input: "ICONIFY_SEARCH", result: "ICONIFY_SEARCH_RESULT", failure: None },
-        ActionEvents { action: "getIconBody", input: "ICONIFY_GET_ICON_BODY", result: "ICONIFY_ICON_BODY_RESULT", failure: None },
+        ActionEvents { action: "svgExists", input: "ICONIFY_SVG_EXISTS", result: "ICONIFY_SVG_EXISTS_RESULT", failure: None, data_field: None },
+        ActionEvents { action: "search", input: "ICONIFY_SEARCH", result: "ICONIFY_SEARCH_RESULT", failure: None, data_field: None },
+        ActionEvents { action: "getIconBody", input: "ICONIFY_GET_ICON_BODY", result: "ICONIFY_ICON_BODY_RESULT", failure: None, data_field: None },
     ],
     env_knobs: &[("ICONIFY_USER_AGENT", "userAgent"), ("ICONIFY_TIMEOUT_MS", "timeoutMs")],
     secret_env: &[],

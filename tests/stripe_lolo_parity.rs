@@ -4,23 +4,24 @@
 #[path = "common/lolo_parity.rs"]
 mod lolo_parity;
 
-use lolo_parity::{ActionEvents, ParitySpec};
+use lolo_parity::{ActionEvents, FixtureAuthority, ParitySession, ParitySpec, ReplayStep};
+use serde_json::Value;
 
 const SPEC: ParitySpec = ParitySpec {
     atom: "almadar-std/behaviors/lolo/infra/atoms/std-stripe.lolo",
     trait_name: "StripeClient",
     fixtures_dir: "stripe",
     events: &[
-        ActionEvents { action: "createPaymentIntent", input: "STRIPE_CREATE_PAYMENT_INTENT", result: "STRIPE_CREATE_PAYMENT_INTENT_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "confirmPayment", input: "STRIPE_CONFIRM_PAYMENT", result: "STRIPE_CONFIRM_PAYMENT_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "refund", input: "STRIPE_REFUND", result: "STRIPE_REFUND_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "createCustomer", input: "STRIPE_CREATE_CUSTOMER", result: "STRIPE_CREATE_CUSTOMER_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "createCheckoutSession", input: "STRIPE_CREATE_CHECKOUT_SESSION", result: "STRIPE_CREATE_CHECKOUT_SESSION_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "createPortalSession", input: "STRIPE_CREATE_PORTAL_SESSION", result: "STRIPE_CREATE_PORTAL_SESSION_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "getSubscription", input: "STRIPE_GET_SUBSCRIPTION", result: "STRIPE_GET_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "createSubscription", input: "STRIPE_CREATE_SUBSCRIPTION", result: "STRIPE_CREATE_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "updateSubscription", input: "STRIPE_UPDATE_SUBSCRIPTION", result: "STRIPE_UPDATE_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED") },
-        ActionEvents { action: "cancelSubscription", input: "STRIPE_CANCEL_SUBSCRIPTION", result: "STRIPE_CANCEL_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED") },
+        ActionEvents { action: "createPaymentIntent", input: "STRIPE_CREATE_PAYMENT_INTENT", result: "STRIPE_CREATE_PAYMENT_INTENT_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "confirmPayment", input: "STRIPE_CONFIRM_PAYMENT", result: "STRIPE_CONFIRM_PAYMENT_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "refund", input: "STRIPE_REFUND", result: "STRIPE_REFUND_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "createCustomer", input: "STRIPE_CREATE_CUSTOMER", result: "STRIPE_CREATE_CUSTOMER_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "createCheckoutSession", input: "STRIPE_CREATE_CHECKOUT_SESSION", result: "STRIPE_CREATE_CHECKOUT_SESSION_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "createPortalSession", input: "STRIPE_CREATE_PORTAL_SESSION", result: "STRIPE_CREATE_PORTAL_SESSION_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "getSubscription", input: "STRIPE_GET_SUBSCRIPTION", result: "STRIPE_GET_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "createSubscription", input: "STRIPE_CREATE_SUBSCRIPTION", result: "STRIPE_CREATE_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "updateSubscription", input: "STRIPE_UPDATE_SUBSCRIPTION", result: "STRIPE_UPDATE_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
+        ActionEvents { action: "cancelSubscription", input: "STRIPE_CANCEL_SUBSCRIPTION", result: "STRIPE_CANCEL_SUBSCRIPTION_RESULT", failure: Some("STRIPE_FAILED"), data_field: None },
     ],
     env_knobs: &[("STRIPE_PRICE_SOLO", "priceSolo"), ("STRIPE_PRICE_TEAMS", "priceTeams")],
     secret_env: &["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
@@ -47,12 +48,36 @@ fn excluded() -> Vec<&'static str> {
     [&VALIDATION_ONLY[..], &RETRIED_BY_THE_HOST[..], &NOT_CONFIGURED[..], &TYPED_AWAY[..]].concat()
 }
 
+// Each POST draws one 16-byte idempotency seed from the journaled random ask; the replay supplies it.
+fn seeds(fixture: &Value) -> Vec<Vec<u8>> {
+    let posts = fixture["exchanges"]
+        .as_array()
+        .expect("exchanges")
+        .iter()
+        .filter(|e| e["request"]["method"] == "POST")
+        .count();
+    (0..posts).map(|n| (0..16).map(|b| u8::try_from(n * 16 + b + 1).expect("seed byte")).collect()).collect()
+}
+
+fn replay(fixture: &Value) {
+    let step = ReplayStep { entropy: seeds(fixture), ..ReplayStep::default() };
+    ParitySession::new(&SPEC, fixture, FixtureAuthority::default()).check(fixture, step);
+}
+
 #[test]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 52, "the recorded stripe cases");
     let skipped = excluded();
-    assert_eq!(lolo_parity::replay_all_except(&SPEC, &skipped), all.len() - skipped.len());
+    let mut replayed = 0;
+    for fixture in &all {
+        if skipped.contains(&lolo_parity::text(fixture, "case")) {
+            continue;
+        }
+        replay(fixture);
+        replayed += 1;
+    }
+    assert_eq!(replayed, all.len() - skipped.len());
 }
 
 #[test]

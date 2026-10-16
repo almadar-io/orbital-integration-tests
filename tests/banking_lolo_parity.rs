@@ -19,9 +19,9 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "BankingClient",
     fixtures_dir: "banking",
     events: &[
-        ActionEvents { action: "createRequisition", input: "BANKING_CREATE_REQUISITION", result: "BANKING_REQUISITION_RESULT", failure: Some("BANKING_FAILED") },
-        ActionEvents { action: "listAccounts", input: "BANKING_LIST_ACCOUNTS", result: "BANKING_ACCOUNTS_RESULT", failure: Some("BANKING_FAILED") },
-        ActionEvents { action: "listTransactions", input: "BANKING_LIST_TRANSACTIONS", result: "BANKING_TRANSACTIONS_RESULT", failure: Some("BANKING_FAILED") },
+        ActionEvents { action: "createRequisition", input: "BANKING_CREATE_REQUISITION", result: "BANKING_REQUISITION_RESULT", failure: Some("BANKING_FAILED"), data_field: None },
+        ActionEvents { action: "listAccounts", input: "BANKING_LIST_ACCOUNTS", result: "BANKING_ACCOUNTS_RESULT", failure: Some("BANKING_FAILED"), data_field: None },
+        ActionEvents { action: "listTransactions", input: "BANKING_LIST_TRANSACTIONS", result: "BANKING_TRANSACTIONS_RESULT", failure: Some("BANKING_FAILED"), data_field: None },
     ],
     env_knobs: &[],
     secret_env: &["GOCARDLESS_SECRET_ID", "GOCARDLESS_SECRET_KEY"],
@@ -35,7 +35,7 @@ const VALIDATION_ONLY: [&str; 4] =
 
 // Approved divergence: the provider cut the error text at 300 characters; the atom passes the full text.
 const CAPPED_ERROR: &str = "create-requisition-error-body-over-300-chars";
-// Not expressible: the driver reports a rejected login as a `failed` transport failure carrying its own text.
+// The driver reports a rejected login with its grant phase and status, which the atom maps to the recorded text.
 const LOGIN_REJECTED: &str = "token-rejected";
 
 fn authority() -> FixtureAuthority {
@@ -88,8 +88,8 @@ fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 20, "the recorded banking cases");
     let mut excluded = VALIDATION_ONLY.to_vec();
-    excluded.extend([CAPPED_ERROR, LOGIN_REJECTED]);
-    assert_eq!(replay_all_except(&excluded), 14, "the cases that send or map a reply");
+    excluded.push(CAPPED_ERROR);
+    assert_eq!(replay_all_except(&excluded), 15, "the cases that send or map a reply");
 }
 
 #[test]
@@ -113,8 +113,7 @@ fn the_recorded_capped_error_text_is_not_what_the_atom_emits() {
 }
 
 #[test]
-#[should_panic(expected = "emitted failure")]
-fn the_rejected_login_fixture_is_not_replayable_by_the_atom() {
+fn the_rejected_login_fixture_is_replayed_by_the_atom() {
     replay(&lolo_parity::fixture_named(&SPEC, LOGIN_REJECTED));
 }
 

@@ -11,8 +11,8 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "MetaAdsClient",
     fixtures_dir: "metaAds",
     events: &[
-        ActionEvents { action: "getSpend", input: "META_ADS_GET_SPEND", result: "META_ADS_SPEND_RESULT", failure: Some("META_ADS_FAILED") },
-        ActionEvents { action: "listCampaigns", input: "META_ADS_LIST_CAMPAIGNS", result: "META_ADS_CAMPAIGNS_RESULT", failure: Some("META_ADS_FAILED") },
+        ActionEvents { action: "getSpend", input: "META_ADS_GET_SPEND", result: "META_ADS_SPEND_RESULT", failure: Some("META_ADS_FAILED"), data_field: None },
+        ActionEvents { action: "listCampaigns", input: "META_ADS_LIST_CAMPAIGNS", result: "META_ADS_CAMPAIGNS_RESULT", failure: Some("META_ADS_FAILED"), data_field: None },
     ],
     env_knobs: &[("META_AD_ACCOUNT_ID", "defaultAccountId")],
     secret_env: &["META_ACCESS_TOKEN"],
@@ -27,6 +27,35 @@ const VALIDATION_ONLY: [&str; 4] =
 // The provider checks the token before the account; an atom cannot read a secret knob in a guard, so with
 // both absent it reports the missing account first. With an account present the missing token reports identically.
 const CREDENTIAL_ABSENT: &str = "credential-absent";
+
+/// D15 (owner): a 2xx campaigns reply that is not a list fails explicitly instead of the provider's empty result.
+const MALFORMED_REPLY: &str = "list-campaigns-reply-is-not-a-list";
+
+fn malformed_reply_fixture(body: &str, message: &str) -> serde_json::Value {
+    let mut fixture = lolo_parity::fixture_named(&SPEC, MALFORMED_REPLY);
+    fixture["exchanges"][0]["response"]["body"] = serde_json::json!(body);
+    fixture["outcome"] = serde_json::json!({"ok": false, "code": "MALFORMED_REPLY", "message": message});
+    fixture
+}
+
+#[test]
+fn a_campaigns_reply_that_is_not_a_list_fails_explicitly() {
+    let recorded = lolo_parity::fixture_named(&SPEC, MALFORMED_REPLY);
+    let body = recorded["exchanges"][0]["response"]["body"].as_str().expect("body").to_string();
+    lolo_parity::check(&SPEC, &malformed_reply_fixture(&body, "Meta Graph API replied with campaigns that are not a list"));
+}
+
+#[test]
+fn a_campaigns_reply_that_is_not_json_fails_explicitly() {
+    lolo_parity::check(&SPEC, &malformed_reply_fixture("not json", "Meta Graph API replied with a body that is not valid JSON"));
+}
+
+#[test]
+fn a_campaigns_reply_without_data_is_still_an_empty_list() {
+    let mut fixture = lolo_parity::fixture_named(&SPEC, MALFORMED_REPLY);
+    fixture["exchanges"][0]["response"]["body"] = serde_json::json!("{}");
+    lolo_parity::check(&SPEC, &fixture);
+}
 
 #[test]
 fn a_missing_token_with_an_account_reports_the_provider_message() {
@@ -49,7 +78,8 @@ fn every_recorded_outcome_is_replayed_by_the_atom() {
     assert_eq!(all.len(), 21, "the recorded metaAds cases");
     let mut excluded = VALIDATION_ONLY.to_vec();
     excluded.push(CREDENTIAL_ABSENT);
-    assert_eq!(lolo_parity::replay_all_except(&SPEC, &excluded), 16);
+    excluded.push(MALFORMED_REPLY);
+    assert_eq!(lolo_parity::replay_all_except(&SPEC, &excluded), 15);
 }
 
 #[test]

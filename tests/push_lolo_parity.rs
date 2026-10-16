@@ -17,7 +17,7 @@ const SPEC: ParitySpec = ParitySpec {
     atom: "almadar-std/behaviors/lolo/infra/atoms/std-push.lolo",
     trait_name: "PushClient",
     fixtures_dir: "push",
-    events: &[ActionEvents { action: "send", input: "PUSH_SEND", result: "PUSH_SEND_RESULT", failure: Some("PUSH_SEND_FAILED") }],
+    events: &[ActionEvents { action: "send", input: "PUSH_SEND", result: "PUSH_SEND_RESULT", failure: Some("PUSH_SEND_FAILED"), data_field: None }],
     env_knobs: &[("VAPID_PUBLIC_KEY", "vapidPublicKey"), ("VAPID_SUBJECT", "vapidSubject")],
     secret_env: &["VAPID_PRIVATE_KEY"],
     compared_headers: &["content-type", "authorization", "ttl", "urgency", "content-encoding", "content-length"],

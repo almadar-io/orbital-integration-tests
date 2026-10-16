@@ -11,8 +11,8 @@ const SPEC: ParitySpec = ParitySpec {
     trait_name: "AccountingExporter",
     fixtures_dir: "accounting",
     events: &[
-        ActionEvents { action: "exportInvoices", input: "ACCOUNTING_EXPORT_INVOICES", result: "ACCOUNTING_EXPORT_INVOICES_RESULT", failure: None },
-        ActionEvents { action: "exportJournal", input: "ACCOUNTING_EXPORT_JOURNAL", result: "ACCOUNTING_EXPORT_JOURNAL_RESULT", failure: None },
+        ActionEvents { action: "exportInvoices", input: "ACCOUNTING_EXPORT_INVOICES", result: "ACCOUNTING_EXPORT_INVOICES_RESULT", failure: None, data_field: None },
+        ActionEvents { action: "exportJournal", input: "ACCOUNTING_EXPORT_JOURNAL", result: "ACCOUNTING_EXPORT_JOURNAL_RESULT", failure: None, data_field: None },
     ],
     env_knobs: &[],
     secret_env: &[],

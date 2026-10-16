@@ -12,7 +12,7 @@ const SPEC: ParitySpec = ParitySpec {
     atom: "almadar-std/behaviors/lolo/infra/atoms/std-email.lolo",
     trait_name: "EmailSender",
     fixtures_dir: "email",
-    events: &[ActionEvents { action: "send", input: "EMAIL_SEND", result: "EMAIL_SENT", failure: Some("EMAIL_SEND_FAILED") }],
+    events: &[ActionEvents { action: "send", input: "EMAIL_SEND", result: "EMAIL_SENT", failure: Some("EMAIL_SEND_FAILED"), data_field: None }],
     env_knobs: &[("EMAIL_VENDOR", "vendor"), ("FROM_EMAIL", "fromEmail")],
     secret_env: &["SENDGRID_API_KEY", "RESEND_API_KEY"],
     compared_headers: &["content-type", "accept", "authorization"],
