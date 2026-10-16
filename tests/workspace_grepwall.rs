@@ -60,17 +60,14 @@ fn registry_json_embedded_once() {
             "Pillar-F1 gate: {file} must not be embedded gzipped — it is installed language data."
         );
     }
-    // Every `registry.json")` occurrence must be the tail of `patterns-registry.json")`,
-    // `services-registry.json")`, or `behaviors-registry.json")` — each a DIFFERENT
-    // artifact from the pattern registry: orbital-cli's runtime path-joins to the
-    // services registry, and `behavior_packages`/the loader path-join to an installed
-    // behavior package's own index file, not a pattern-registry embed. A standalone
+    // Every `registry.json")` occurrence must be the tail of `patterns-registry.json")` or
+    // `services-registry.json")` — a DIFFERENT artifact from the pattern registry:
+    // orbital-cli's runtime path-joins to the services registry, not a pattern-registry embed. A standalone
     // `registry.json` embed (the old per-shell copies) makes the counts diverge.
     assert_eq!(
         count(&src, "registry.json\")"),
         count(&src, "patterns-registry.json\")")
-            + count(&src, "services-registry.json\")")
-            + count(&src, "behaviors-registry.json\")"),
+            + count(&src, "services-registry.json\")"),
         "Pillar-F1 gate: a standalone registry.json embed is back — the pattern registry \
          must read the single patterns-registry.json (shared with the validator's embedded view)."
     );
