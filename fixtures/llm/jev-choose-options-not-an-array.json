@@ -1,0 +1,19 @@
+{
+  "service": "llm",
+  "action": "choose",
+  "case": "jev-choose-options-not-an-array",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key"
+  },
+  "params": {
+    "state": "Order the planets by size",
+    "instructions": "Which skill does this need?",
+    "options": "sort"
+  },
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed for llm.choose: options: Expected array, got string"
+  }
+}

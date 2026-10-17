@@ -1,0 +1,61 @@
+{
+  "service": "llm",
+  "action": "call-tools",
+  "case": "anthropic-call-tools-unsupported",
+  "env": {
+    "ANTHROPIC_API_KEY": "test-key"
+  },
+  "params": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Add milk to my list"
+      }
+    ],
+    "tools": [
+      {
+        "name": "ADD_ITEM_1",
+        "description": "Add an item to the list (Cart → CartList)",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "description": "Read the rows of an entity that you may see",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "string",
+              "enum": [
+                "Item"
+              ]
+            }
+          },
+          "required": [
+            "entity"
+          ]
+        }
+      }
+    ]
+  },
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "LLMClient.callWithTools: anthropic provider is not supported; use callWithMessages instead"
+  }
+}

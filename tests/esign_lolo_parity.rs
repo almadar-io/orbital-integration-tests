@@ -5,7 +5,7 @@
 #[path = "common/lolo_parity.rs"]
 mod lolo_parity;
 
-use lolo_parity::{ActionEvents, ParitySpec};
+use lolo_parity::{ActionEvents, Deadline, ExchangeContract, FixtureAuthority, ParitySession, ParitySpec, RecordedBody, ReplayStep};
 use serde_json::{json, Value};
 
 const ORIGIN: &str = "https://demo.docusign.net";
@@ -25,6 +25,10 @@ const SPEC: ParitySpec = ParitySpec {
     default_timeout_ms: 30000,
     base: Some(("origin", ORIGIN)),
 };
+
+/// Not UTF-8 (0xff, 0xfe, 0x80, 0xc3 0x28): a recorded text body cannot carry it.
+const BINARY: [u8; 12] = [0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0xfe, 0x80, 0xc3, 0x28, 0x0d, 0x0a];
+const BINARY_BASE64: &str = "JVBERgD//oDDKA0K";
 
 const VALIDATION_ONLY: [&str; 4] =
     ["unknown-action", "validation-missing-recipient", "validation-unknown-param", "validation-wrong-type"];
@@ -57,6 +61,36 @@ fn every_recorded_outcome_is_replayed_by_the_atom() {
     for fixture in &all {
         lolo_parity::check(&SPEC, fixture);
     }
+}
+
+#[test]
+fn a_binary_document_reaches_the_result_as_base64_of_its_bytes() {
+    let mut fixture = adapted(&lolo_parity::fixture_named(&SPEC, "download-document"));
+    fixture["outcome"]["data"]["content"] = json!(BINARY_BASE64);
+    let step = ReplayStep {
+        exchanges: vec![ExchangeContract {
+            request_body: RecordedBody::RecordedText,
+            response_body: RecordedBody::Bytes(BINARY.to_vec()),
+            timeout: Deadline::Default,
+        }],
+        ..ReplayStep::default()
+    };
+    ParitySession::new(&SPEC, &fixture, FixtureAuthority::default()).check(&fixture, step);
+}
+
+#[test]
+#[should_panic(expected = "emitted result")]
+fn control_a_binary_document_does_not_match_the_text_fixture_content() {
+    let fixture = adapted(&lolo_parity::fixture_named(&SPEC, "download-document"));
+    let step = ReplayStep {
+        exchanges: vec![ExchangeContract {
+            request_body: RecordedBody::RecordedText,
+            response_body: RecordedBody::Bytes(BINARY.to_vec()),
+            timeout: Deadline::Default,
+        }],
+        ..ReplayStep::default()
+    };
+    ParitySession::new(&SPEC, &fixture, FixtureAuthority::default()).check(&fixture, step);
 }
 
 #[test]

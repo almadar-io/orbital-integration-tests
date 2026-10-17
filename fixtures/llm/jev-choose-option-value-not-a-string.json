@@ -1,0 +1,27 @@
+{
+  "service": "llm",
+  "action": "choose",
+  "case": "jev-choose-option-value-not-a-string",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key"
+  },
+  "params": {
+    "state": "Order the planets by size",
+    "instructions": "Which skill does this need?",
+    "options": [
+      {
+        "value": 1,
+        "description": "one"
+      },
+      {
+        "description": "two"
+      }
+    ]
+  },
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "[\n  {\n    \"code\": \"invalid_type\",\n    \"expected\": \"string\",\n    \"received\": \"number\",\n    \"path\": [\n      \"options\",\n      0,\n      \"value\"\n    ],\n    \"message\": \"Expected string, received number\"\n  },\n  {\n    \"code\": \"invalid_type\",\n    \"expected\": \"string\",\n    \"received\": \"undefined\",\n    \"path\": [\n      \"options\",\n      1,\n      \"value\"\n    ],\n    \"message\": \"Required\"\n  }\n]"
+  }
+}

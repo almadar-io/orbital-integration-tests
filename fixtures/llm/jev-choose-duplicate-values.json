@@ -1,0 +1,28 @@
+{
+  "service": "llm",
+  "action": "choose",
+  "case": "jev-choose-duplicate-values",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key"
+  },
+  "params": {
+    "state": "Order the planets by size",
+    "instructions": "Which skill does this need?",
+    "options": [
+      {
+        "value": "sort",
+        "description": "Sorting into groups"
+      },
+      {
+        "value": "sort",
+        "description": "again"
+      }
+    ]
+  },
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "[\n  {\n    \"code\": \"custom\",\n    \"message\": \"choose options need distinct values\",\n    \"path\": [\n      \"options\"\n    ]\n  }\n]"
+  }
+}

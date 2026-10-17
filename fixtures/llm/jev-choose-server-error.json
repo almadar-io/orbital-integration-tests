@@ -1,0 +1,45 @@
+{
+  "service": "llm",
+  "action": "choose",
+  "case": "jev-choose-server-error",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key"
+  },
+  "params": {
+    "state": "Order the planets by size",
+    "instructions": "Which skill does this need?",
+    "options": [
+      {
+        "value": "sort",
+        "description": "Sorting into groups"
+      },
+      {
+        "value": "order",
+        "description": "Putting things in order"
+      }
+    ]
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/alpha/decisions",
+        "headers": {
+          "content-type": "application/json",
+          "accept": "*/*",
+          "authorization": "<redacted>"
+        },
+        "body": "{\"model\":\"typesafe/jev-1.13\",\"state\":\"Order the planets by size\",\"questions\":{\"pick\":{\"type\":\"choice\",\"instructions\":\"Which skill does this need?\",\"criteria\":{\"sort\":\"Sorting into groups\",\"order\":\"Putting things in order\"}}}}"
+      },
+      "response": {
+        "status": 502,
+        "body": "{\"error\":\"bad gateway\"}"
+      }
+    }
+  ],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "Jev decide failed with status 502"
+  }
+}

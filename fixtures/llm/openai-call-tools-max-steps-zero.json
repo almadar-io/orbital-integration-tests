@@ -1,0 +1,63 @@
+{
+  "service": "llm",
+  "action": "call-tools",
+  "case": "openai-call-tools-max-steps-zero",
+  "env": {
+    "OPENAI_API_KEY": "test-key",
+    "OPENAI_BASE_URL": "{base}/v1"
+  },
+  "params": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Add milk to my list"
+      }
+    ],
+    "tools": [
+      {
+        "name": "ADD_ITEM_1",
+        "description": "Add an item to the list (Cart → CartList)",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "description": "Read the rows of an entity that you may see",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "string",
+              "enum": [
+                "Item"
+              ]
+            }
+          },
+          "required": [
+            "entity"
+          ]
+        }
+      }
+    ],
+    "maxSteps": 0
+  },
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "[\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 0,\n    \"type\": \"number\",\n    \"inclusive\": false,\n    \"exact\": false,\n    \"message\": \"Number must be greater than 0\",\n    \"path\": [\n      \"maxSteps\"\n    ]\n  }\n]"
+  }
+}

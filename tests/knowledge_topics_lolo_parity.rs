@@ -182,3 +182,202 @@ fn a_drifted_recorded_outcome_fails_the_replay() {
 fn no_secret_reaches_the_atom_or_a_fixture() {
     lolo_parity::assert_no_secrets(&SPEC);
 }
+
+// The concept icon and persona organisms replace the host actions `conceptIcon` and `conceptPersona`. Their recorded
+// exchanges are the host's: the Firestore cache read/write (`{base}`) is the kernel's entity store here, so those
+// exchanges are dropped and a cache hit is staged by running a miss first. Every other exchange is replayed exactly.
+
+const ICON_SPEC: ParitySpec = ParitySpec {
+    atom: "almadar-std/behaviors/lolo/infra/organisms/std-concept-icon.lolo",
+    trait_name: "ConceptIconResolver",
+    fixtures_dir: "knowledge",
+    events: &[ActionEvents {
+        action: "conceptIcon",
+        input: "CONCEPT_ICON",
+        result: "CONCEPT_ICON_RESULT",
+        failure: Some("CONCEPT_ICON_FAILED"),
+        data_field: None,
+    }],
+    env_knobs: &[],
+    secret_env: &[],
+    compared_headers: &["content-type", "accept", "authorization"],
+    default_timeout_ms: 6000,
+    base: None,
+};
+
+const PERSONA_SPEC: ParitySpec = ParitySpec {
+    atom: "almadar-std/behaviors/lolo/infra/organisms/std-concept-persona.lolo",
+    trait_name: "ConceptPersonaResolver",
+    fixtures_dir: "knowledge",
+    events: &[ActionEvents {
+        action: "conceptPersona",
+        input: "CONCEPT_PERSONA",
+        result: "CONCEPT_PERSONA_RESULT",
+        failure: Some("CONCEPT_PERSONA_FAILED"),
+        data_field: None,
+    }],
+    env_knobs: &[],
+    secret_env: &["DEEPSEEK_API_KEY"],
+    compared_headers: &["content-type", "accept", "authorization"],
+    default_timeout_ms: 6000,
+    base: None,
+};
+
+const MODEL_TIMEOUT_MS: u64 = 300_000;
+const HTTP_TIMEOUT_MS: u64 = 6000;
+
+fn knowledge_fixture(case: &str) -> Json {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../orbital-integrations/fixtures/knowledge")
+        .join(format!("{case}.json"));
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+}
+
+fn without_cache_exchanges(mut fixture: Json) -> Json {
+    fixture.as_object_mut().expect("fixture").remove("now");
+    fixture["exchanges"]
+        .as_array_mut()
+        .expect("exchanges")
+        .retain(|e| !e["request"]["url"].as_str().expect("url").contains("{base}"));
+    fixture
+}
+
+fn organism_contracts(fixture: &Json) -> Vec<ExchangeContract> {
+    fixture["exchanges"]
+        .as_array()
+        .expect("exchanges")
+        .iter()
+        .map(|e| {
+            let ms = if e["request"]["url"].as_str().expect("url").contains("api.deepseek.com") {
+                MODEL_TIMEOUT_MS
+            } else {
+                HTTP_TIMEOUT_MS
+            };
+            ExchangeContract {
+                timeout: Deadline::Exact(Some(std::time::Duration::from_millis(ms))),
+                ..Default::default()
+            }
+        })
+        .collect()
+}
+
+// The organisms compose std atoms (`Alias.traits.X`); the lowered file leaves those as references, so the program is
+// resolved the way `orb compile` resolves it from the package directory before the kernel registers it.
+fn resolved_organism(spec: &ParitySpec) -> orbital_core::OrbitalSchema {
+    orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../packages").join(spec.atom);
+    let mut options = orbital_compiler::CompilerOptions::from_env();
+    let start = path.parent().expect("atom dir").to_path_buf();
+    let user_store = orbital_core::behavior_packages::user_store_dir().unwrap_or_else(|| start.clone());
+    options.inline.loader_config.packages =
+        orbital_core::behavior_packages::discover(&start, &user_store).expect("behavior package discovery");
+    let schema = orbital_compiler::phases::parse_file(&path).expect("parse");
+    orbital_compiler::phases::resolve_compiled_program_with_path(schema, &options, Some(&path)).expect("resolve")
+}
+
+fn organism_session<'a>(spec: &'a ParitySpec, fixture: &Json) -> ParitySession<'a> {
+    ParitySession::with_schema(spec, resolved_organism(spec), fixture, FixtureAuthority::default())
+}
+
+fn organism_check(session: &mut ParitySession<'_>, fixture: &Json) {
+    session.check(fixture, ReplayStep { exchanges: organism_contracts(fixture), ..Default::default() });
+}
+
+fn organism_replay(spec: &ParitySpec, case: &str) {
+    let fixture = without_cache_exchanges(knowledge_fixture(case));
+    let mut session = organism_session(spec, &fixture);
+    organism_check(&mut session, &fixture);
+}
+
+fn organism_stage(session: &mut ParitySession<'_>, fixture: &Json) {
+    session.run(fixture, ReplayStep { exchanges: organism_contracts(fixture), ..Default::default() });
+}
+
+fn replace_text(fixture: &Json, from: &str, to: &str) -> Json {
+    serde_json::from_str(&fixture.to_string().replace(from, to)).expect("fixture json")
+}
+
+#[test]
+fn every_recorded_concept_icon_miss_is_replayed_by_the_organism() {
+    for case in [
+        "concept-icon-blank",
+        "concept-icon-devicon",
+        "concept-icon-found-by-search",
+        "concept-icon-nothing-found-is-cached",
+    ] {
+        organism_replay(&ICON_SPEC, case);
+    }
+}
+
+#[test]
+fn a_cached_concept_icon_is_answered_without_a_request() {
+    let found = without_cache_exchanges(knowledge_fixture("concept-icon-found-by-search"));
+    let cached = without_cache_exchanges(knowledge_fixture("concept-icon-cached"));
+    assert!(cached["exchanges"].as_array().expect("exchanges").is_empty());
+    let mut session = organism_session(&ICON_SPEC, &found);
+    organism_stage(&mut session, &found);
+    organism_check(&mut session, &cached);
+}
+
+#[test]
+fn a_cached_miss_answers_an_empty_icon_without_a_request() {
+    let nothing = replace_text(
+        &without_cache_exchanges(knowledge_fixture("concept-icon-nothing-found-is-cached")),
+        "zzzz",
+        "zzz",
+    );
+    let nothing = replace_text(&nothing, "Zzzz", "Zzz");
+    let cached = without_cache_exchanges(knowledge_fixture("concept-icon-cached-miss"));
+    assert!(cached["exchanges"].as_array().expect("exchanges").is_empty());
+    let mut session = organism_session(&ICON_SPEC, &nothing);
+    organism_stage(&mut session, &nothing);
+    organism_check(&mut session, &cached);
+}
+
+#[test]
+fn every_recorded_concept_persona_miss_is_replayed_by_the_organism() {
+    for case in [
+        "concept-persona",
+        "concept-persona-echo-then-corrected",
+        "concept-persona-stays-degenerate-uses-a-tutor",
+        "concept-persona-wikipedia-miss",
+        "concept-persona-label-is-an-id",
+    ] {
+        organism_replay(&PERSONA_SPEC, case);
+    }
+}
+
+#[test]
+fn a_cached_persona_is_answered_from_its_stored_bio_without_a_request() {
+    let mut miss = without_cache_exchanges(knowledge_fixture("concept-persona-wikipedia-miss"));
+    let draft = json!({
+        "id": "chatcmpl-1", "object": "chat.completion", "created": 1, "model": "deepseek-v4-flash",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": json!({
+            "name": "Isaac Newton", "description": "English physicist.", "greeting": "Hi"
+        }).to_string() }, "finish_reason": "stop" }],
+        "usage": { "prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4 }
+    });
+    miss["exchanges"][0]["response"]["body"] = json!(draft.to_string());
+    miss["exchanges"][1]["response"] = json!({
+        "status": 200,
+        "body": json!({ "query": { "pages": { "1": { "title": "Isaac Newton", "description": "English physicist.", "extract": "Born 1643." } } } }).to_string()
+    });
+    let cached = without_cache_exchanges(knowledge_fixture("concept-persona-cached"));
+    assert!(cached["exchanges"].as_array().expect("exchanges").is_empty());
+    let mut session = organism_session(&PERSONA_SPEC, &miss);
+    organism_stage(&mut session, &miss);
+    organism_check(&mut session, &cached);
+}
+
+#[test]
+fn a_drifted_persona_outcome_fails_the_organism_replay() {
+    let result = std::panic::catch_unwind(|| {
+        let mut fixture = without_cache_exchanges(knowledge_fixture("concept-persona"));
+        fixture["outcome"]["data"]["name"] = json!("Albert Einstein");
+        let mut session = organism_session(&PERSONA_SPEC, &fixture);
+        organism_check(&mut session, &fixture);
+    });
+    assert!(result.is_err());
+}
+

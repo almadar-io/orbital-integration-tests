@@ -7,9 +7,13 @@
 #[path = "common/lolo_parity.rs"]
 mod lolo_parity;
 
-use lolo_parity::{ActionEvents, FixtureAuthority, ParitySession, ParitySpec, ReplayStep};
+use lolo_parity::{ActionEvents, Deadline, ExchangeContract, FixtureAuthority, ParitySession, ParitySpec, RecordedBody, ReplayStep};
 use serde_json::{json, Value};
 use std::path::PathBuf;
+
+/// Not UTF-8 (0xff, 0xfe, 0x80, 0xc3 0x28): a recorded text body cannot carry it.
+const BINARY: [u8; 12] = [0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0xfe, 0x80, 0xc3, 0x28, 0x0d, 0x0a];
+const BINARY_BASE64: &str = "JVBERgD//oDDKA0K";
 
 const FAILED: Option<&str> = Some("STORAGE_FAILED");
 
@@ -75,7 +79,7 @@ const MEMORY_BACKEND_FREE: [&str; 8] = [
 const PRESIGN_LIFETIME_REFUSED: [&str; 2] = ["s3-signed-urls#6", "s3-signed-urls#7"];
 
 fn dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../orbital-integrations/fixtures/storage")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/storage")
 }
 
 fn steps() -> Vec<Value> {
@@ -163,6 +167,48 @@ fn fully_replayed() -> Vec<Value> {
                 && !listed(&PRESIGN_LIFETIME_REFUSED)(step)
         })
         .collect()
+}
+
+fn named(case: &str) -> Value {
+    steps().into_iter().find(|step| name(step) == case).unwrap_or_else(|| panic!("no recorded step {case}"))
+}
+
+fn binary_step(step: &Value, request_body: RecordedBody, response_body: RecordedBody) -> ReplayStep {
+    let at = step["clockMs"].as_u64().expect("clockMs");
+    ReplayStep {
+        at_ms: Some(at),
+        exchanges: vec![ExchangeContract { request_body, response_body, timeout: Deadline::Default }],
+        ..ReplayStep::default()
+    }
+}
+
+#[test]
+fn a_binary_s3_object_reaches_the_result_as_base64_of_its_bytes() {
+    let mut step = named("s3-object-round-trip#4");
+    step["outcome"]["data"]["content"] = json!(BINARY_BASE64);
+    step["outcome"]["data"]["size"] = json!(BINARY.len());
+    let replay = binary_step(&step, RecordedBody::RecordedText, RecordedBody::Bytes(BINARY.to_vec()));
+    session(&step).check(&step, replay);
+}
+
+#[test]
+#[should_panic(expected = "emitted result")]
+fn control_a_binary_s3_object_does_not_match_the_text_content() {
+    let step = named("s3-object-round-trip#4");
+    let replay = binary_step(&step, RecordedBody::RecordedText, RecordedBody::Bytes(BINARY.to_vec()));
+    session(&step).check(&step, replay);
+}
+
+#[test]
+fn a_binary_s3_upload_is_sent_unchanged() {
+    let mut step = named("s3-upload-forms#1");
+    step["params"]["file"]["content"] = json!(format!("data:image/png;base64,{BINARY_BASE64}"));
+    step["params"]["file"]["size"] = json!(BINARY.len());
+    let replay = binary_step(&step, RecordedBody::Bytes(BINARY.to_vec()), RecordedBody::RecordedText);
+    let run = session(&step).run(&step, replay);
+    assert_eq!(run.sent.len(), 1, "one PUT");
+    assert_eq!(run.sent[0].body, BINARY.to_vec(), "PUT body");
+    assert_eq!(run.results[0]["size"], json!(BINARY.len()));
 }
 
 #[test]

@@ -1,0 +1,249 @@
+{
+  "service": "llm",
+  "case": "openai-call-tools-parallel-calls-and-refused-tool",
+  "env": {
+    "OPENAI_API_KEY": "test-key",
+    "OPENAI_BASE_URL": "{base}/v1"
+  },
+  "nowMs": 1700000000000,
+  "steps": [
+    {
+      "action": "call-tools",
+      "params": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Add milk, show my items and archive everything"
+          }
+        ],
+        "tools": [
+          {
+            "name": "ADD_ITEM_1",
+            "description": "Add an item to the list (Cart → CartList)",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            }
+          },
+          {
+            "name": "read",
+            "description": "Read the rows of an entity that you may see",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "entity": {
+                  "type": "string",
+                  "enum": [
+                    "Item"
+                  ]
+                }
+              },
+              "required": [
+                "entity"
+              ]
+            }
+          }
+        ],
+        "instructions": "You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly."
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "url": "{base}/v1/chat/completions",
+            "headers": {
+              "content-type": "application/json",
+              "authorization": "<redacted>"
+            },
+            "body": "{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"system\",\"content\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\"},{\"role\":\"user\",\"content\":\"Add milk, show my items and archive everything\"}],\"parallel_tool_calls\":false,\"temperature\":0.7,\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}}},{\"type\":\"function\",\"function\":{\"name\":\"read\",\"description\":\"Read the rows of an entity that you may see\",\"parameters\":{\"type\":\"object\",\"properties\":{\"entity\":{\"type\":\"string\",\"enum\":[\"Item\"]}},\"required\":[\"entity\"]}}}]}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"id\":\"chatcmpl-1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I'll do all three.\",\"reasoning_content\":\"The user wants three things.\",\"tool_calls\":[{\"id\":\"call_a\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}},{\"id\":\"call_b\",\"type\":\"function\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"entity\\\":\\\"Item\\\"}\"}},{\"id\":\"call_c\",\"type\":\"function\",\"function\":{\"name\":\"archive_all\",\"arguments\":\"{}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":200,\"completion_tokens\":30,\"total_tokens\":230}}"
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "session": "{\"key\":\"\",\"model\":\"gpt-4o\",\"system\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\",\"userPrompt\":\"Add milk, show my items and archive everything\",\"maxSteps\":8,\"startedAt\":1700000000000,\"tools\":[{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}},{\"name\":\"read\",\"description\":\"Read the rows of an entity that you may see\",\"parameters\":{\"type\":\"object\",\"properties\":{\"entity\":{\"type\":\"string\",\"enum\":[\"Item\"]}},\"required\":[\"entity\"]}}],\"messages\":[{\"role\":\"system\",\"content\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\"},{\"role\":\"user\",\"content\":\"Add milk, show my items and archive everything\"},{\"role\":\"assistant\",\"content\":\"I'll do all three.\",\"reasoning_content\":\"The user wants three things.\",\"tool_calls\":[{\"id\":\"call_a\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}},{\"id\":\"call_b\",\"type\":\"function\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"entity\\\":\\\"Item\\\"}\"}},{\"id\":\"call_c\",\"type\":\"function\",\"function\":{\"name\":\"archive_all\",\"arguments\":\"{}\"}}]}],\"steps\":[{\"type\":\"llm_response\",\"content\":\"I'll do all three.\",\"llm\":{\"service\":\"llm\",\"provider\":\"openai\",\"model\":\"gpt-4o\",\"systemPrompt\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\",\"userPrompt\":\"Add milk, show my items and archive everything\",\"toolCallsJson\":\"[{\\\"id\\\":\\\"call_a\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"ADD_ITEM_1\\\",\\\"arguments\\\":\\\"{\\\\\\\"name\\\\\\\":\\\\\\\"milk\\\\\\\"}\\\"}},{\\\"id\\\":\\\"call_b\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"read\\\",\\\"arguments\\\":\\\"{\\\\\\\"entity\\\\\\\":\\\\\\\"Item\\\\\\\"}\\\"}},{\\\"id\\\":\\\"call_c\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"archive_all\\\",\\\"arguments\\\":\\\"{}\\\"}}]\",\"durationMs\":0,\"promptTokens\":200,\"completionTokens\":30},\"timestamp\":1700000000000}],\"usage\":{\"promptTokens\":200,\"completionTokens\":30,\"totalTokens\":230,\"modelCalls\":1}}",
+          "calls": [
+            {
+              "id": "call_a",
+              "name": "ADD_ITEM_1",
+              "arguments": "{\"name\":\"milk\"}"
+            },
+            {
+              "id": "call_b",
+              "name": "read",
+              "arguments": "{\"entity\":\"Item\"}"
+            },
+            {
+              "id": "call_c",
+              "name": "archive_all",
+              "arguments": "{}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "action": "tools-answered",
+      "advanceMs": 1500,
+      "params": {
+        "session": "{{0.session}}",
+        "results": [
+          {
+            "id": "call_a",
+            "tool": "Cart.CartList.ADD_ITEM",
+            "kind": "input",
+            "success": true,
+            "content": "{\"ok\":true,\"emitted\":[{\"event\":\"ITEM_ADDED\",\"payload\":{\"name\":\"milk\"}}]}",
+            "startedAt": 1700000000050,
+            "endedAt": 1700000000120
+          },
+          {
+            "id": "call_b",
+            "tool": "Item",
+            "kind": "read",
+            "success": true,
+            "rows": 2,
+            "content": "{\"rows\":[{\"id\":\"1\",\"name\":\"eggs\"},{\"id\":\"2\",\"name\":\"milk\"}]}",
+            "startedAt": 1700000000120,
+            "endedAt": 1700000000180
+          },
+          {
+            "id": "call_c",
+            "tool": "archive_all",
+            "kind": "invalid",
+            "success": false,
+            "detail": "not an allowed tool",
+            "content": "{\"error\":\"'archive_all' is not one of your tools\",\"tools\":[\"ADD_ITEM_1\",\"read\"]}",
+            "startedAt": 1700000000180,
+            "endedAt": 1700000000181
+          }
+        ]
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "url": "{base}/v1/chat/completions",
+            "headers": {
+              "content-type": "application/json",
+              "authorization": "<redacted>"
+            },
+            "body": "{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"system\",\"content\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\"},{\"role\":\"user\",\"content\":\"Add milk, show my items and archive everything\"},{\"role\":\"assistant\",\"content\":\"I'll do all three.\",\"reasoning_content\":\"The user wants three things.\",\"tool_calls\":[{\"id\":\"call_a\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}},{\"id\":\"call_b\",\"type\":\"function\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"entity\\\":\\\"Item\\\"}\"}},{\"id\":\"call_c\",\"type\":\"function\",\"function\":{\"name\":\"archive_all\",\"arguments\":\"{}\"}}]},{\"role\":\"tool\",\"content\":\"{\\\"ok\\\":true,\\\"emitted\\\":[{\\\"event\\\":\\\"ITEM_ADDED\\\",\\\"payload\\\":{\\\"name\\\":\\\"milk\\\"}}]}\",\"tool_call_id\":\"call_a\"},{\"role\":\"tool\",\"content\":\"{\\\"rows\\\":[{\\\"id\\\":\\\"1\\\",\\\"name\\\":\\\"eggs\\\"},{\\\"id\\\":\\\"2\\\",\\\"name\\\":\\\"milk\\\"}]}\",\"tool_call_id\":\"call_b\"},{\"role\":\"tool\",\"content\":\"{\\\"error\\\":\\\"'archive_all' is not one of your tools\\\",\\\"tools\\\":[\\\"ADD_ITEM_1\\\",\\\"read\\\"]}\",\"tool_call_id\":\"call_c\"}],\"parallel_tool_calls\":false,\"temperature\":0.7,\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}}},{\"type\":\"function\",\"function\":{\"name\":\"read\",\"description\":\"Read the rows of an entity that you may see\",\"parameters\":{\"type\":\"object\",\"properties\":{\"entity\":{\"type\":\"string\",\"enum\":[\"Item\"]}},\"required\":[\"entity\"]}}}]}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"id\":\"chatcmpl-1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Milk is added and you have two items. Archiving everything is not something I can do.\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":310,\"completion_tokens\":22,\"total_tokens\":332}}"
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "reply": "Milk is added and you have two items. Archiving everything is not something I can do.",
+          "steps": [
+            {
+              "type": "llm_response",
+              "content": "I'll do all three.",
+              "llm": {
+                "service": "llm",
+                "provider": "openai",
+                "model": "gpt-4o",
+                "systemPrompt": "You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.",
+                "userPrompt": "Add milk, show my items and archive everything",
+                "toolCallsJson": "[{\"id\":\"call_a\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}},{\"id\":\"call_b\",\"type\":\"function\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"entity\\\":\\\"Item\\\"}\"}},{\"id\":\"call_c\",\"type\":\"function\",\"function\":{\"name\":\"archive_all\",\"arguments\":\"{}\"}}]",
+                "durationMs": 0,
+                "promptTokens": 200,
+                "completionTokens": 30
+              },
+              "timestamp": 1700000000000
+            },
+            {
+              "type": "tool_call",
+              "tool": "Cart.CartList.ADD_ITEM",
+              "kind": "input",
+              "argsText": "{\"name\":\"milk\"}",
+              "timestamp": 1700000000050
+            },
+            {
+              "type": "tool_result",
+              "tool": "Cart.CartList.ADD_ITEM",
+              "kind": "input",
+              "success": true,
+              "resultText": "{\"ok\":true,\"emitted\":[{\"event\":\"ITEM_ADDED\",\"payload\":{\"name\":\"milk\"}}]}",
+              "timestamp": 1700000000120
+            },
+            {
+              "type": "tool_call",
+              "tool": "Item",
+              "kind": "read",
+              "argsText": "{\"entity\":\"Item\"}",
+              "timestamp": 1700000000120
+            },
+            {
+              "type": "tool_result",
+              "tool": "Item",
+              "kind": "read",
+              "success": true,
+              "rows": 2,
+              "resultText": "{\"rows\":[{\"id\":\"1\",\"name\":\"eggs\"},{\"id\":\"2\",\"name\":\"milk\"}]}",
+              "timestamp": 1700000000180
+            },
+            {
+              "type": "tool_call",
+              "tool": "archive_all",
+              "kind": "invalid",
+              "argsText": "{}",
+              "timestamp": 1700000000180
+            },
+            {
+              "type": "tool_result",
+              "tool": "archive_all",
+              "kind": "invalid",
+              "success": false,
+              "detail": "not an allowed tool",
+              "resultText": "{\"error\":\"'archive_all' is not one of your tools\",\"tools\":[\"ADD_ITEM_1\",\"read\"]}",
+              "timestamp": 1700000000181
+            },
+            {
+              "type": "llm_response",
+              "content": "Milk is added and you have two items. Archiving everything is not something I can do.",
+              "llm": {
+                "service": "llm",
+                "provider": "openai",
+                "model": "gpt-4o",
+                "systemPrompt": "You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.",
+                "userPrompt": "Add milk, show my items and archive everything",
+                "durationMs": 0,
+                "promptTokens": 310,
+                "completionTokens": 22
+              },
+              "timestamp": 1700000001500
+            }
+          ],
+          "usage": {
+            "promptTokens": 510,
+            "completionTokens": 52,
+            "totalTokens": 562,
+            "modelCalls": 2
+          }
+        }
+      }
+    }
+  ]
+}

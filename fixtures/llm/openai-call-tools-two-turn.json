@@ -1,0 +1,188 @@
+{
+  "service": "llm",
+  "case": "openai-call-tools-two-turn",
+  "env": {
+    "OPENAI_API_KEY": "test-key",
+    "OPENAI_BASE_URL": "{base}/v1"
+  },
+  "nowMs": 1700000000000,
+  "steps": [
+    {
+      "action": "call-tools",
+      "params": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Add milk to my list"
+          }
+        ],
+        "tools": [
+          {
+            "name": "ADD_ITEM_1",
+            "description": "Add an item to the list (Cart → CartList)",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            }
+          },
+          {
+            "name": "read",
+            "description": "Read the rows of an entity that you may see",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "entity": {
+                  "type": "string",
+                  "enum": [
+                    "Item"
+                  ]
+                }
+              },
+              "required": [
+                "entity"
+              ]
+            }
+          }
+        ],
+        "instructions": "You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.",
+        "maxSteps": 4
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "url": "{base}/v1/chat/completions",
+            "headers": {
+              "content-type": "application/json",
+              "authorization": "<redacted>"
+            },
+            "body": "{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"system\",\"content\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\"},{\"role\":\"user\",\"content\":\"Add milk to my list\"}],\"parallel_tool_calls\":false,\"temperature\":0.7,\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}}},{\"type\":\"function\",\"function\":{\"name\":\"read\",\"description\":\"Read the rows of an entity that you may see\",\"parameters\":{\"type\":\"object\",\"properties\":{\"entity\":{\"type\":\"string\",\"enum\":[\"Item\"]}},\"required\":[\"entity\"]}}}]}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"id\":\"chatcmpl-1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":120,\"completion_tokens\":18,\"total_tokens\":138}}"
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "session": "{\"key\":\"\",\"model\":\"gpt-4o\",\"system\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\",\"userPrompt\":\"Add milk to my list\",\"maxSteps\":4,\"startedAt\":1700000000000,\"tools\":[{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}},{\"name\":\"read\",\"description\":\"Read the rows of an entity that you may see\",\"parameters\":{\"type\":\"object\",\"properties\":{\"entity\":{\"type\":\"string\",\"enum\":[\"Item\"]}},\"required\":[\"entity\"]}}],\"messages\":[{\"role\":\"system\",\"content\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\"},{\"role\":\"user\",\"content\":\"Add milk to my list\"},{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}]}],\"steps\":[{\"type\":\"llm_response\",\"content\":\"\",\"llm\":{\"service\":\"llm\",\"provider\":\"openai\",\"model\":\"gpt-4o\",\"systemPrompt\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\",\"userPrompt\":\"Add milk to my list\",\"toolCallsJson\":\"[{\\\"id\\\":\\\"call_1\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"ADD_ITEM_1\\\",\\\"arguments\\\":\\\"{\\\\\\\"name\\\\\\\":\\\\\\\"milk\\\\\\\"}\\\"}}]\",\"durationMs\":0,\"promptTokens\":120,\"completionTokens\":18},\"timestamp\":1700000000000}],\"usage\":{\"promptTokens\":120,\"completionTokens\":18,\"totalTokens\":138,\"modelCalls\":1}}",
+          "calls": [
+            {
+              "id": "call_1",
+              "name": "ADD_ITEM_1",
+              "arguments": "{\"name\":\"milk\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "action": "tools-answered",
+      "advanceMs": 2000,
+      "params": {
+        "session": "{{0.session}}",
+        "results": [
+          {
+            "id": "call_1",
+            "tool": "Cart.CartList.ADD_ITEM",
+            "kind": "input",
+            "success": true,
+            "content": "{\"ok\":true,\"emitted\":[{\"event\":\"ITEM_ADDED\",\"payload\":{\"name\":\"milk\"}}]}",
+            "startedAt": 1700000000100,
+            "endedAt": 1700000000400
+          }
+        ]
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "url": "{base}/v1/chat/completions",
+            "headers": {
+              "content-type": "application/json",
+              "authorization": "<redacted>"
+            },
+            "body": "{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"system\",\"content\":\"You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.\"},{\"role\":\"user\",\"content\":\"Add milk to my list\"},{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}]},{\"role\":\"tool\",\"content\":\"{\\\"ok\\\":true,\\\"emitted\\\":[{\\\"event\\\":\\\"ITEM_ADDED\\\",\\\"payload\\\":{\\\"name\\\":\\\"milk\\\"}}]}\",\"tool_call_id\":\"call_1\"}],\"parallel_tool_calls\":false,\"temperature\":0.7,\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}}},{\"type\":\"function\",\"function\":{\"name\":\"read\",\"description\":\"Read the rows of an entity that you may see\",\"parameters\":{\"type\":\"object\",\"properties\":{\"entity\":{\"type\":\"string\",\"enum\":[\"Item\"]}},\"required\":[\"entity\"]}}}]}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"id\":\"chatcmpl-1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Added milk to your list.\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":160,\"completion_tokens\":9,\"total_tokens\":169}}"
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "reply": "Added milk to your list.",
+          "steps": [
+            {
+              "type": "llm_response",
+              "content": "",
+              "llm": {
+                "service": "llm",
+                "provider": "openai",
+                "model": "gpt-4o",
+                "systemPrompt": "You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.",
+                "userPrompt": "Add milk to my list",
+                "toolCallsJson": "[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}]",
+                "durationMs": 0,
+                "promptTokens": 120,
+                "completionTokens": 18
+              },
+              "timestamp": 1700000000000
+            },
+            {
+              "type": "tool_call",
+              "tool": "Cart.CartList.ADD_ITEM",
+              "kind": "input",
+              "argsText": "{\"name\":\"milk\"}",
+              "timestamp": 1700000000100
+            },
+            {
+              "type": "tool_result",
+              "tool": "Cart.CartList.ADD_ITEM",
+              "kind": "input",
+              "success": true,
+              "resultText": "{\"ok\":true,\"emitted\":[{\"event\":\"ITEM_ADDED\",\"payload\":{\"name\":\"milk\"}}]}",
+              "timestamp": 1700000000400
+            },
+            {
+              "type": "llm_response",
+              "content": "Added milk to your list.",
+              "llm": {
+                "service": "llm",
+                "provider": "openai",
+                "model": "gpt-4o",
+                "systemPrompt": "You operate this app for the signed-in user. Use the tools to act and to look things up; when a tool reports that something was refused or denied, say so plainly.",
+                "userPrompt": "Add milk to my list",
+                "durationMs": 0,
+                "promptTokens": 160,
+                "completionTokens": 9
+              },
+              "timestamp": 1700000002000
+            }
+          ],
+          "usage": {
+            "promptTokens": 280,
+            "completionTokens": 27,
+            "totalTokens": 307,
+            "modelCalls": 2
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "service": "llm",
+  "action": "extract",
+  "case": "openai-extract-bad-request",
+  "env": {
+    "OPENAI_API_KEY": "test-key",
+    "OPENAI_BASE_URL": "{base}/v1"
+  },
+  "params": {
+    "text": "Ada is 36",
+    "schema": "{\n  \"properties\": {\n    \"age\": {\n      \"type\": \"number\"\n    },\n    \"name\": {\n      \"type\": \"string\"\n    }\n  },\n  \"type\": \"object\"\n}"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "{base}/v1/chat/completions",
+        "headers": {
+          "content-type": "application/json",
+          "accept": "application/json",
+          "authorization": "<redacted>"
+        },
+        "body": "{\"model\":\"gpt-4o\",\"temperature\":0.2,\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"You are a structured data extractor. Extract data from the given text according to this schema:\\n\\n{\\n  \\\"properties\\\": {\\n    \\\"age\\\": {\\n      \\\"type\\\": \\\"number\\\"\\n    },\\n    \\\"name\\\": {\\n      \\\"type\\\": \\\"string\\\"\\n    }\\n  },\\n  \\\"type\\\": \\\"object\\\"\\n}\\n\\nReturn ONLY valid JSON matching the schema.\"},{\"role\":\"user\",\"content\":\"Ada is 36\"}]}"
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"Invalid request\",\"type\":\"invalid_request_error\",\"code\":null}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "{base}/v1/chat/completions",
+        "headers": {
+          "content-type": "application/json",
+          "accept": "application/json",
+          "authorization": "<redacted>"
+        },
+        "body": "{\"model\":\"gpt-4o\",\"temperature\":0.2,\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"You are a structured data extractor. Extract data from the given text according to this schema:\\n\\n{\\n  \\\"properties\\\": {\\n    \\\"age\\\": {\\n      \\\"type\\\": \\\"number\\\"\\n    },\\n    \\\"name\\\": {\\n      \\\"type\\\": \\\"string\\\"\\n    }\\n  },\\n  \\\"type\\\": \\\"object\\\"\\n}\\n\\nReturn ONLY valid JSON matching the schema.\"},{\"role\":\"user\",\"content\":\"Ada is 36\\n\\n[Previous attempt failed with: 400 Invalid request]\\nPlease output valid JSON that matches the expected schema.\"}]}"
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"Invalid request\",\"type\":\"invalid_request_error\",\"code\":null}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "{base}/v1/chat/completions",
+        "headers": {
+          "content-type": "application/json",
+          "accept": "application/json",
+          "authorization": "<redacted>"
+        },
+        "body": "{\"model\":\"gpt-4o\",\"temperature\":0.2,\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"You are a structured data extractor. Extract data from the given text according to this schema:\\n\\n{\\n  \\\"properties\\\": {\\n    \\\"age\\\": {\\n      \\\"type\\\": \\\"number\\\"\\n    },\\n    \\\"name\\\": {\\n      \\\"type\\\": \\\"string\\\"\\n    }\\n  },\\n  \\\"type\\\": \\\"object\\\"\\n}\\n\\nReturn ONLY valid JSON matching the schema.\"},{\"role\":\"user\",\"content\":\"Ada is 36\\n\\n[Previous attempt failed with: 400 Invalid request]\\nPlease output valid JSON that matches the expected schema.\"}]}"
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"Invalid request\",\"type\":\"invalid_request_error\",\"code\":null}}"
+      }
+    }
+  ],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "400 Invalid request"
+  }
+}

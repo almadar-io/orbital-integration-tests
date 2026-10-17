@@ -107,6 +107,49 @@ fn replayable() -> Vec<Value> {
         .collect()
 }
 
+/// Not UTF-8 (0xff, 0xfe, 0x80, 0xc3 0x28): a recorded text body cannot carry it.
+const BINARY: [u8; 12] = [0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0xfe, 0x80, 0xc3, 0x28, 0x0d, 0x0a];
+const BINARY_BASE64: &str = "JVBERgD//oDDKA0K";
+
+#[test]
+fn a_binary_drive_file_reaches_the_result_as_base64_of_its_bytes() {
+    let mut fixture = with_boundary(&lolo_parity::fixture_named(&SPEC, "get-file"));
+    fixture["outcome"]["data"]["content"] = json!(BINARY_BASE64);
+    fixture["outcome"]["data"]["size"] = json!(BINARY.len());
+    let mut replay = step(&fixture);
+    let media = replay.exchanges.len() - 1;
+    replay.exchanges[media].response_body = RecordedBody::Bytes(BINARY.to_vec());
+    ParitySession::new(&SPEC, &fixture, authority()).check(&fixture, replay);
+}
+
+#[test]
+#[should_panic(expected = "emitted result")]
+fn control_a_binary_drive_file_does_not_match_the_text_content() {
+    let fixture = with_boundary(&lolo_parity::fixture_named(&SPEC, "get-file"));
+    let mut replay = step(&fixture);
+    let media = replay.exchanges.len() - 1;
+    replay.exchanges[media].response_body = RecordedBody::Bytes(BINARY.to_vec());
+    ParitySession::new(&SPEC, &fixture, authority()).check(&fixture, replay);
+}
+
+#[test]
+fn a_binary_drive_upload_is_sent_unchanged_inside_the_multipart_body() {
+    let mut fixture = lolo_parity::fixture_named(&SPEC, "upload-file-base64-data-url");
+    fixture["params"]["content"] = json!(format!("data:application/octet-stream;base64,{BINARY_BASE64}"));
+    let fixture = with_boundary(&fixture);
+    let mut replay = step(&fixture);
+    let upload = replay.exchanges.len() - 1;
+    let b = boundary();
+    let mut body = format!(
+        "--{b}\r\ncontent-type: application/json\r\n\r\n{{\"name\":\"hi.txt\"}}\r\n--{b}\r\ncontent-type: application/octet-stream\r\n\r\n"
+    )
+    .into_bytes();
+    body.extend_from_slice(&BINARY);
+    body.extend_from_slice(format!("\r\n--{b}--\r\n").as_bytes());
+    replay.exchanges[upload].request_body = RecordedBody::Bytes(body);
+    ParitySession::new(&SPEC, &fixture, authority()).check(&fixture, replay);
+}
+
 #[test]
 fn every_replayable_recorded_fixture_is_replayed_by_the_atom() {
     assert_eq!(lolo_parity::fixtures(&SPEC).len(), 43, "the recorded drive cases");

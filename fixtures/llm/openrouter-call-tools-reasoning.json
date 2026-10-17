@@ -1,0 +1,168 @@
+{
+  "service": "llm",
+  "case": "openrouter-call-tools-reasoning",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key",
+    "LLM_PROVIDER": "openrouter"
+  },
+  "nowMs": 1700000000000,
+  "steps": [
+    {
+      "action": "call-tools",
+      "params": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Add milk to my list"
+          }
+        ],
+        "tools": [
+          {
+            "name": "ADD_ITEM_1",
+            "description": "Add an item to the list (Cart → CartList)",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            }
+          }
+        ]
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "url": "https://openrouter.ai/api/v1/chat/completions",
+            "headers": {
+              "content-type": "application/json",
+              "authorization": "<redacted>"
+            },
+            "body": "{\"model\":\"qwen/qwen-2.5-72b-instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"Add milk to my list\"}],\"parallel_tool_calls\":false,\"temperature\":0.7,\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}}}],\"reasoning\":{\"enabled\":true},\"usage\":{\"include\":true}}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"id\":\"chatcmpl-1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"reasoning\":\"I should add the item.\",\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":90,\"completion_tokens\":12,\"total_tokens\":102}}"
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "session": "{\"key\":\"\",\"model\":\"qwen/qwen-2.5-72b-instruct\",\"system\":null,\"userPrompt\":\"Add milk to my list\",\"maxSteps\":8,\"startedAt\":1700000000000,\"tools\":[{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}}],\"messages\":[{\"role\":\"user\",\"content\":\"Add milk to my list\"},{\"role\":\"assistant\",\"content\":null,\"reasoning\":\"I should add the item.\",\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}],\"reasoning_content\":\"I should add the item.\"}],\"steps\":[{\"type\":\"llm_response\",\"content\":\"\",\"llm\":{\"service\":\"llm\",\"provider\":\"openrouter\",\"model\":\"qwen/qwen-2.5-72b-instruct\",\"systemPrompt\":\"\",\"userPrompt\":\"Add milk to my list\",\"toolCallsJson\":\"[{\\\"id\\\":\\\"call_1\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"ADD_ITEM_1\\\",\\\"arguments\\\":\\\"{\\\\\\\"name\\\\\\\":\\\\\\\"milk\\\\\\\"}\\\"}}]\",\"durationMs\":0,\"promptTokens\":90,\"completionTokens\":12},\"timestamp\":1700000000000}],\"usage\":{\"promptTokens\":90,\"completionTokens\":12,\"totalTokens\":102,\"modelCalls\":1}}",
+          "calls": [
+            {
+              "id": "call_1",
+              "name": "ADD_ITEM_1",
+              "arguments": "{\"name\":\"milk\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "action": "tools-answered",
+      "advanceMs": 1000,
+      "params": {
+        "session": "{{0.session}}",
+        "results": [
+          {
+            "id": "call_1",
+            "tool": "Cart.CartList.ADD_ITEM",
+            "kind": "input",
+            "success": true,
+            "content": "{\"ok\":true,\"emitted\":[{\"event\":\"ITEM_ADDED\",\"payload\":{\"name\":\"milk\"}}]}",
+            "startedAt": 1700000000010,
+            "endedAt": 1700000000060
+          }
+        ]
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "url": "https://openrouter.ai/api/v1/chat/completions",
+            "headers": {
+              "content-type": "application/json",
+              "authorization": "<redacted>"
+            },
+            "body": "{\"model\":\"qwen/qwen-2.5-72b-instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"Add milk to my list\"},{\"role\":\"assistant\",\"content\":null,\"reasoning\":\"I should add the item.\",\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}],\"reasoning_content\":\"I should add the item.\"},{\"role\":\"tool\",\"content\":\"{\\\"ok\\\":true,\\\"emitted\\\":[{\\\"event\\\":\\\"ITEM_ADDED\\\",\\\"payload\\\":{\\\"name\\\":\\\"milk\\\"}}]}\",\"tool_call_id\":\"call_1\"}],\"parallel_tool_calls\":false,\"temperature\":0.7,\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"description\":\"Add an item to the list (Cart → CartList)\",\"parameters\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"number\"}},\"required\":[\"name\"]}}}],\"reasoning\":{\"enabled\":true},\"usage\":{\"include\":true}}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"id\":\"chatcmpl-1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Done.\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":130,\"completion_tokens\":3,\"total_tokens\":133}}"
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "reply": "Done.",
+          "steps": [
+            {
+              "type": "llm_response",
+              "content": "",
+              "llm": {
+                "service": "llm",
+                "provider": "openrouter",
+                "model": "qwen/qwen-2.5-72b-instruct",
+                "systemPrompt": "",
+                "userPrompt": "Add milk to my list",
+                "toolCallsJson": "[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"ADD_ITEM_1\",\"arguments\":\"{\\\"name\\\":\\\"milk\\\"}\"}}]",
+                "durationMs": 0,
+                "promptTokens": 90,
+                "completionTokens": 12
+              },
+              "timestamp": 1700000000000
+            },
+            {
+              "type": "tool_call",
+              "tool": "Cart.CartList.ADD_ITEM",
+              "kind": "input",
+              "argsText": "{\"name\":\"milk\"}",
+              "timestamp": 1700000000010
+            },
+            {
+              "type": "tool_result",
+              "tool": "Cart.CartList.ADD_ITEM",
+              "kind": "input",
+              "success": true,
+              "resultText": "{\"ok\":true,\"emitted\":[{\"event\":\"ITEM_ADDED\",\"payload\":{\"name\":\"milk\"}}]}",
+              "timestamp": 1700000000060
+            },
+            {
+              "type": "llm_response",
+              "content": "Done.",
+              "llm": {
+                "service": "llm",
+                "provider": "openrouter",
+                "model": "qwen/qwen-2.5-72b-instruct",
+                "systemPrompt": "",
+                "userPrompt": "Add milk to my list",
+                "durationMs": 0,
+                "promptTokens": 130,
+                "completionTokens": 3
+              },
+              "timestamp": 1700000001000
+            }
+          ],
+          "usage": {
+            "promptTokens": 220,
+            "completionTokens": 15,
+            "totalTokens": 235,
+            "modelCalls": 2
+          }
+        }
+      }
+    }
+  ]
+}

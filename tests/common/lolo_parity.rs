@@ -13,7 +13,7 @@ use orbital_core::oauth::ask::{OAuthAsk, OAuthReply};
 use orbital_core::oauth::store::MemoryOAuthStore;
 use orbital_core::runtime::http_request::{BeaconOutcome, CredentialSlot, SecretScope};
 use orbital_core::runtime::http_service::{
-    HttpRequest, HttpResponse, SecretSource, TransportError,
+    credential_status_connected, HttpRequest, HttpResponse, SecretSource, TransportError,
 };
 use orbital_core::runtime::resumable::{drive_blocking, BlockingHost, IoAnswer, IoRequest, PageFacts};
 use orbital_core::runtime::{
@@ -39,7 +39,8 @@ pub struct ParitySpec {
     /// Path of the atom under `packages/`, e.g. `almadar-std/behaviors/lolo/infra/atoms/std-iconify.lolo`.
     pub atom: &'static str,
     pub trait_name: &'static str,
-    /// The service directory under `orbital-integrations/fixtures/`.
+    /// The service directory under `fixtures/` here, or under `orbital-integrations/fixtures/` for a host-provider service
+    /// (`HOST_PROVIDER_FIXTURES`).
     pub fixtures_dir: &'static str,
     pub events: &'static [ActionEvents],
     /// `(ENV_VAR, knob)`: the fixture env value patches the knob default; a `timeoutMs` knob is a number.
@@ -58,6 +59,8 @@ pub struct Run {
     pub sent: Vec<HttpRequest>,
     pub unused: usize,
     pub unused_entropy: usize,
+    /// The virtual time (ms) each request was sent at: the clock when it was asked plus its `delayMs`, in order.
+    pub send_times: Vec<u64>,
 }
 
 pub struct FixtureCredential {
@@ -319,10 +322,16 @@ pub fn step_scenarios(spec: &ParitySpec) -> Vec<Json> {
     all_fixture_files(spec).into_iter().filter(is_step_scenario).collect()
 }
 
+/// Services whose recorded fixtures stay with the host provider that remains in `orbital-integrations`.
+const HOST_PROVIDER_FIXTURES: [&str; 1] = ["knowledge-web"];
+
 fn all_fixture_files(spec: &ParitySpec) -> Vec<Json> {
-    let dir = root()
-        .join("../orbital-integrations/fixtures")
-        .join(spec.fixtures_dir);
+    let base = if HOST_PROVIDER_FIXTURES.contains(&spec.fixtures_dir) {
+        root().join("../orbital-integrations/fixtures")
+    } else {
+        root().join("fixtures")
+    };
+    let dir = base.join(spec.fixtures_dir);
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap_or_else(|e| panic!("{} is missing ({e})", dir.display()))
         .map(|entry| entry.expect("fixture entry").path())
@@ -360,6 +369,8 @@ struct Replay<'a> {
     case: String,
     script: Mutex<VecDeque<(Json, ExchangeContract)>>,
     sent: Mutex<Vec<HttpRequest>>,
+    /// See [`Run::send_times`].
+    send_times: Mutex<Vec<u64>>,
     entropy: Mutex<VecDeque<Vec<u8>>>,
     host: Arc<FixtureHost>,
     default_timeout: Duration,
@@ -395,6 +406,7 @@ impl<'a> Replay<'a> {
             case: text(fixture, "case").to_string(),
             script: Mutex::new(recorded.iter().cloned().zip(contracts).collect()),
             sent: Mutex::new(Vec::new()),
+            send_times: Mutex::new(Vec::new()),
             entropy: Mutex::new(step.entropy.iter().cloned().collect()),
             host,
             default_timeout: expected_timeout(spec, fixture),
@@ -530,7 +542,14 @@ impl<'a> Replay<'a> {
 
     fn answer_io(&self, request: &IoRequest, store: &dyn EntitySource) -> IoAnswer {
         match request {
-            IoRequest::Http { request, .. } => IoAnswer::Http(self.answer(request)),
+            IoRequest::Http { request, delay_ms, .. } => {
+                // The host waits `delayMs` before it sends; on the virtual clock each wait follows the previous send.
+                let mut times = self.send_times.lock().expect("send times");
+                let previous = times.last().copied().unwrap_or(self.host.now() as u64);
+                times.push(previous + delay_ms.unwrap_or(0));
+                drop(times);
+                IoAnswer::Http(self.answer(request))
+            }
             IoRequest::Secret { name, principal } => {
                 IoAnswer::Secret(self.host.secret_of(name, principal.as_deref()))
             }
@@ -553,7 +572,7 @@ impl<'a> Replay<'a> {
             IoRequest::CredentialStatus { name, principal } => IoAnswer::CredentialStatus(
                 self.host
                     .secret_of(name, principal.as_deref())
-                    .map(|value| value.is_some()),
+                    .map(|value| credential_status_connected(value.as_deref(), principal.as_deref())),
             ),
             IoRequest::CredentialForget { name, principal } => {
                 IoAnswer::CredentialForget(self.host.forget_of(name, principal.as_deref()))
@@ -887,6 +906,7 @@ impl<'a> ParitySession<'a> {
             }
         }
         let sent = replay.sent.lock().expect("sent").clone();
+        let send_times = replay.send_times.lock().expect("send times").clone();
         let unused_entropy = replay.entropy.lock().expect("entropy").len();
         Run {
             results,
@@ -894,6 +914,7 @@ impl<'a> ParitySession<'a> {
             sent,
             unused: replay.unused(),
             unused_entropy,
+            send_times,
         }
     }
 }

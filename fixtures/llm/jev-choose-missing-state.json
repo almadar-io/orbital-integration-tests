@@ -1,0 +1,27 @@
+{
+  "service": "llm",
+  "action": "choose",
+  "case": "jev-choose-missing-state",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key"
+  },
+  "params": {
+    "instructions": "q",
+    "options": [
+      {
+        "value": "sort",
+        "description": "Sorting into groups"
+      },
+      {
+        "value": "order",
+        "description": "Putting things in order"
+      }
+    ]
+  },
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed for llm.choose: state: Missing required parameter: state"
+  }
+}

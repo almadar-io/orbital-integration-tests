@@ -1,0 +1,45 @@
+{
+  "service": "llm",
+  "action": "choose",
+  "case": "jev-choose-outside-criteria",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key"
+  },
+  "params": {
+    "state": "Order the planets by size",
+    "instructions": "Which skill does this need?",
+    "options": [
+      {
+        "value": "sort",
+        "description": "Sorting into groups"
+      },
+      {
+        "value": "order",
+        "description": "Putting things in order"
+      }
+    ]
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/alpha/decisions",
+        "headers": {
+          "content-type": "application/json",
+          "accept": "*/*",
+          "authorization": "<redacted>"
+        },
+        "body": "{\"model\":\"typesafe/jev-1.13\",\"state\":\"Order the planets by size\",\"questions\":{\"pick\":{\"type\":\"choice\",\"instructions\":\"Which skill does this need?\",\"criteria\":{\"sort\":\"Sorting into groups\",\"order\":\"Putting things in order\"}}}}"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"model\":\"typesafe/jev-1.13\",\"id\":\"dec-1\",\"provider\":\"jev\",\"answers\":{\"pick\":{\"type\":\"choice\",\"choice\":\"other\",\"probabilities\":{\"other\":1},\"confidence\":0.9}},\"usage\":{\"input_tokens\":12,\"output_tokens\":1,\"cost\":0.0001}}"
+      }
+    }
+  ],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "Jev decide: answer \"pick\" chose \"other\", which is not one of the declared criteria"
+  }
+}

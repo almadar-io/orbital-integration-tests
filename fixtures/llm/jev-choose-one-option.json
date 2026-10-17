@@ -1,0 +1,24 @@
+{
+  "service": "llm",
+  "action": "choose",
+  "case": "jev-choose-one-option",
+  "env": {
+    "OPEN_ROUTER_API_KEY": "test-key"
+  },
+  "params": {
+    "state": "Order the planets by size",
+    "instructions": "Which skill does this need?",
+    "options": [
+      {
+        "value": "sort",
+        "description": "Sorting into groups"
+      }
+    ]
+  },
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "[\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 2,\n    \"type\": \"array\",\n    \"inclusive\": true,\n    \"exact\": false,\n    \"message\": \"choose needs at least two options\",\n    \"path\": [\n      \"options\"\n    ]\n  }\n]"
+  }
+}

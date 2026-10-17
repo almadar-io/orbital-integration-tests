@@ -18,8 +18,14 @@ const SPEC: ParitySpec = ParitySpec {
         ActionEvents { action: "classify", input: "LLM_CLASSIFY", result: "LLM_CLASSIFY_RESULT", failure: Some("LLM_FAILED"), data_field: None },
         ActionEvents { action: "classifyMany", input: "LLM_CLASSIFY_MANY", result: "LLM_CLASSIFY_MANY_RESULT", failure: Some("LLM_FAILED"), data_field: None },
         ActionEvents { action: "summarize", input: "LLM_SUMMARIZE", result: "LLM_SUMMARIZE_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "init", input: "INIT", result: "LLM_EMBED_KEY_PROBED", failure: Some("LLM_FAILED"), data_field: None },
         ActionEvents { action: "embed", input: "LLM_EMBED", result: "LLM_EMBED_RESULT", failure: Some("LLM_FAILED"), data_field: None },
         ActionEvents { action: "choose", input: "LLM_CHOOSE", result: "LLM_CHOOSE_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "extract", input: "LLM_EXTRACT", result: "LLM_EXTRACT_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "call-tools", input: "LLM_CALL_TOOLS", result: "LLM_TOOLS_REQUESTED", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "call-tools-reply", input: "LLM_CALL_TOOLS", result: "LLM_CALL_TOOLS_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "tools-answered", input: "LLM_TOOLS_ANSWERED", result: "LLM_CALL_TOOLS_RESULT", failure: Some("LLM_FAILED"), data_field: None },
+        ActionEvents { action: "tools-answered-more", input: "LLM_TOOLS_ANSWERED", result: "LLM_TOOLS_REQUESTED", failure: Some("LLM_FAILED"), data_field: None },
     ],
     env_knobs: &[
         ("KNOB_PROVIDER", "provider"),
@@ -51,10 +57,9 @@ const VALIDATION_ONLY: [&str; 7] = [
     "validation-unknown-param",
     "validation-wrong-type",
 ];
-// A typed event payload rejects these before the atom runs (a stronger rung than a message).
-const TYPED_PAYLOAD: [&str; 1] = ["jev-choose-option-value-not-a-string"];
-// Not ported: the reply is shaped by the caller's JSON schema, which no event payload type can name.
-const NOT_PORTED: [&str; 1] = ["openai-extract"];
+// A typed event payload rejects these before the atom runs (a stronger rung than a message). `openai-extract`'s
+// schema is an object while the atom takes schema text; `openai-extract-schema-text` is its replayed twin.
+const TYPED_PAYLOAD: [&str; 2] = ["jev-choose-option-value-not-a-string", "openai-extract"];
 
 struct Provider {
     origin: &'static str,
@@ -145,7 +150,7 @@ fn replayable() -> Vec<Json> {
         })
         .filter(|f| {
             let case = lolo_parity::text(f, "case");
-            !TYPED_PAYLOAD.contains(&case) && !NOT_PORTED.contains(&case)
+            !TYPED_PAYLOAD.contains(&case)
         })
         .map(translate)
         .collect()
@@ -158,7 +163,7 @@ fn only() -> Option<Vec<String>> {
 #[test]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
-    assert_eq!(all.len(), 44, "the recorded llm cases");
+    assert_eq!(all.len(), 52, "the recorded llm cases");
     let cases = replayable();
     let mut failed: Vec<String> = Vec::new();
     for fixture in &cases {
@@ -172,7 +177,7 @@ fn every_recorded_outcome_is_replayed_by_the_atom() {
         }
     }
     assert!(failed.is_empty(), "failing cases:\n{}", failed.join("\n"));
-    assert_eq!(cases.len(), 44 - VALIDATION_ONLY.len() - TYPED_PAYLOAD.len() - NOT_PORTED.len() + 1);
+    assert_eq!(cases.len(), 52 - VALIDATION_ONLY.len() - TYPED_PAYLOAD.len() + 1);
 }
 
 #[test]
@@ -200,4 +205,104 @@ fn a_drifted_recorded_outcome_fails_the_replay() {
 #[test]
 fn no_secret_reaches_the_atom_or_a_fixture() {
     lolo_parity::assert_no_secrets(&SPEC);
+}
+
+fn scenario_translated(scenario: &Json) -> Json {
+    let mut seeded = scenario.clone();
+    seeded["action"] = scenario["steps"][0]["action"].clone();
+    let mut translated = translate(&seeded);
+    translated.as_object_mut().expect("scenario").remove("action");
+    translated
+}
+
+fn two_turn_scenario() -> Json {
+    lolo_parity::step_scenarios(&SPEC)
+        .into_iter()
+        .find(|s| lolo_parity::text(s, "case") == "openai-call-tools-two-turn")
+        .expect("openai-call-tools-two-turn")
+}
+
+#[test]
+fn every_recorded_call_tools_scenario_is_replayed_by_the_atom() {
+    let scenarios = lolo_parity::step_scenarios(&SPEC);
+    assert_eq!(scenarios.len(), 7, "the recorded llm step scenarios");
+    for scenario in &scenarios {
+        let translated = scenario_translated(scenario);
+        lolo_parity::ParitySession::for_scenario(&SPEC, &translated).check_steps(&translated);
+    }
+}
+
+#[test]
+#[should_panic(expected = "emitted result")]
+fn a_drifted_scenario_outcome_fails_the_replay() {
+    let mut scenario = scenario_translated(&two_turn_scenario());
+    let last = scenario["steps"].as_array().expect("steps").len() - 1;
+    scenario["steps"][last]["outcome"]["data"]["usage"]["modelCalls"] = json!(99);
+    lolo_parity::ParitySession::for_scenario(&SPEC, &scenario).check_steps(&scenario);
+}
+
+#[test]
+#[should_panic(expected = "body")]
+fn a_drifted_tool_call_id_in_a_later_request_fails_the_replay() {
+    let mut scenario = scenario_translated(&two_turn_scenario());
+    let body = lolo_parity::text(&scenario["steps"][1]["exchanges"][0]["request"], "body").replace("call_1", "call_9");
+    scenario["steps"][1]["exchanges"][0]["request"]["body"] = json!(body);
+    lolo_parity::ParitySession::for_scenario(&SPEC, &scenario).check_steps(&scenario);
+}
+
+fn embed_fixture(case: &str) -> Json {
+    translate(&lolo_parity::fixture_named(&SPEC, case))
+}
+
+/// The lmstudio embed fixture with a 429 (and the given response headers) in front of its recorded exchange.
+fn rate_limited_embed(headers: Json) -> Json {
+    let mut fixture = embed_fixture("lmstudio-embed");
+    let rate_limited = json!({
+        "request": fixture["exchanges"][0]["request"].clone(),
+        "response": { "status": 429, "headers": headers, "body": "slow down" },
+    });
+    fixture["exchanges"].as_array_mut().expect("exchanges").insert(0, rate_limited);
+    fixture
+}
+
+/// When each request of the fixture is sent, in ms after the dispatch: the host waits each request's `delayMs`.
+fn send_offsets(fixture: &Json) -> Vec<u64> {
+    let start = 1_000_000;
+    let step = lolo_parity::ReplayStep { at_ms: Some(start), ..Default::default() };
+    let run = lolo_parity::ParitySession::new(&SPEC, fixture, lolo_parity::FixtureAuthority::default()).run(fixture, step);
+    assert_eq!(run.unused, 0, "every recorded exchange was sent");
+    assert_eq!(run.results.len(), usize::from(lolo_parity::is_ok(fixture)), "{:?}", run.results);
+    run.send_times.iter().map(|t| t - start).collect()
+}
+
+#[test]
+fn a_failed_embed_attempt_waits_500_then_2000_ms_before_it_is_sent_again() {
+    let fixture = embed_fixture("lmstudio-embed-provider-error-envelope");
+    assert_eq!(send_offsets(&fixture), vec![0, 500, 2_500]);
+}
+
+#[test]
+fn a_rate_limited_embed_attempt_waits_the_retry_after_header_else_two_seconds() {
+    assert_eq!(send_offsets(&rate_limited_embed(json!({ "retry-after": "7" }))), vec![0, 7_000]);
+    // Controls: no header takes the first step of the 2000/5000/15000 schedule, and a header that is not whole seconds is ignored.
+    assert_eq!(send_offsets(&rate_limited_embed(json!({}))), vec![0, 2_000]);
+    assert_eq!(send_offsets(&rate_limited_embed(json!({ "retry-after": "Wed, 21 Oct 2026 07:28:00 GMT" }))), vec![0, 2_000]);
+}
+
+fn lmstudio_authorization(key: Option<&str>) -> String {
+    let mut fixture = embed_fixture("lmstudio-embed");
+    if let Some(key) = key {
+        fixture["env"]["EMBEDDING_API_KEY"] = json!(key);
+    }
+    let mut session = lolo_parity::ParitySession::new(&SPEC, &fixture, lolo_parity::FixtureAuthority::default());
+    let init = json!({ "case": "init", "env": fixture["env"], "action": "init", "params": {}, "exchanges": [], "outcome": { "ok": true, "data": {} } });
+    session.run(&init, lolo_parity::ReplayStep::default());
+    let run = session.run(&fixture, lolo_parity::ReplayStep::default());
+    run.sent[0].headers.iter().find(|(k, _)| k.eq_ignore_ascii_case("authorization")).expect("authorization header").1.clone()
+}
+
+#[test]
+fn lmstudio_embeddings_send_the_configured_key_when_it_is_set_and_not_needed_when_it_is_not() {
+    assert_eq!(lmstudio_authorization(Some("test-key")), "Bearer test-key");
+    assert_eq!(lmstudio_authorization(None), "Bearer not-needed");
 }

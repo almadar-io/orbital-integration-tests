@@ -15,7 +15,7 @@ mod session_regressions {
     use serde_json::{json, Value as Json};
 
     const SPEC: ParitySpec = ParitySpec {
-        atom: "almadar-std/behaviors/lolo/infra/atoms/std-iconify.lolo",
+        atom: "almadar-std/behaviors/lolo/infra/atoms/std-github.lolo",
         trait_name: "Harness",
         fixtures_dir: "iconify",
         events: &[
@@ -1043,7 +1043,7 @@ fn alice_session(scenario: &serde_json::Value, ttl_ms: Option<u64>) -> lolo_pari
 #[test]
 fn steps_replay_in_order_on_one_stateful_session() {
     // status, forget, status: the second status only sees "disconnected" because the forget carried over.
-    let scenario = steps_scenario(vec![credential_step("status", true), credential_step("forget", true), credential_step("status", false)]);
+    let scenario = steps_scenario(vec![credential_step("status", true), credential_step("forget", false), credential_step("status", false)]);
     let runs = alice_session(&scenario, None).check_steps(&scenario);
     assert_eq!(runs.len(), 3);
     assert_eq!(runs[2].1.results, vec![json!({ "connected": false })]);
@@ -1052,7 +1052,7 @@ fn steps_replay_in_order_on_one_stateful_session() {
 #[test]
 #[should_panic(expected = "emitted result")]
 fn steps_control_a_step_that_expects_the_unforgotten_state_fails() {
-    let scenario = steps_scenario(vec![credential_step("status", true), credential_step("forget", true), credential_step("status", true)]);
+    let scenario = steps_scenario(vec![credential_step("status", true), credential_step("forget", false), credential_step("status", true)]);
     alice_session(&scenario, None).check_steps(&scenario);
 }
 
