@@ -25,11 +25,13 @@ use orbital_core::ir::PageFactField;
 use orbital_core::oauth::ask::{OAuthAsk, OAuthReply};
 use orbital_core::oauth::store::MemoryOAuthStore;
 use orbital_core::runtime::http_request::{BeaconOutcome, CredentialSlot, SecretScope};
-use orbital_core::runtime::os::{OsError, OsErrorKind, OsOp};
 use orbital_core::runtime::http_service::{
     credential_status_connected, HttpRequest, HttpResponse, SecretSource, TransportError,
 };
-use orbital_core::runtime::resumable::{drive_blocking, BlockingHost, IoAnswer, IoRequest, PageFacts};
+use orbital_core::runtime::os::{OsError, OsErrorKind, OsOp};
+use orbital_core::runtime::resumable::{
+    drive_blocking, BlockingHost, IoAnswer, IoRequest, PageFacts,
+};
 use orbital_core::runtime::{
     DispatchClock, EntitySource, InMemoryEntityCache, KernelConfig, RuntimeKernel,
 };
@@ -75,6 +77,8 @@ pub struct ParitySpec {
     pub unreadable_knob: UnreadableKnob,
     /// Fields the failure event carries beyond `code` and `message`, and the value each takes for a fixture.
     pub failure_extras: fn(&Json) -> Vec<(&'static str, Json)>,
+    /// The failure event field that carries the outcome's `message` (`error` on atoms that follow the `{error, code}` shape).
+    pub failure_message_field: &'static str,
 }
 
 pub fn no_failure_extras(_: &Json) -> Vec<(&'static str, Json)> {
@@ -97,6 +101,7 @@ impl ParitySpec {
         case_knobs: &[],
         unreadable_knob: UnreadableKnob::Fail,
         failure_extras: no_failure_extras,
+        failure_message_field: "message",
     };
 }
 
@@ -127,17 +132,35 @@ pub enum UnreadableKnob {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum KnobError {
-    Unreadable { case: String, variable: String, knob: String, raw: String },
-    Undeclared { case: String, knob: String },
+    Unreadable {
+        case: String,
+        variable: String,
+        knob: String,
+        raw: String,
+    },
+    Undeclared {
+        case: String,
+        knob: String,
+    },
 }
 
 impl std::fmt::Display for KnobError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Unreadable { case, variable, knob, raw } => {
-                write!(f, "{case}: {variable}={raw:?} is not a number for knob {knob}")
+            Self::Unreadable {
+                case,
+                variable,
+                knob,
+                raw,
+            } => {
+                write!(
+                    f,
+                    "{case}: {variable}={raw:?} is not a number for knob {knob}"
+                )
             }
-            Self::Undeclared { case, knob } => write!(f, "{case}: the atom declares no config knob {knob}"),
+            Self::Undeclared { case, knob } => {
+                write!(f, "{case}: the atom declares no config knob {knob}")
+            }
         }
     }
 }
@@ -369,7 +392,12 @@ impl SecretSource for FixtureHost {
         self.oauth.answer(ask, principal)
     }
 
-    fn rotate_secret_of(&self, name: &str, value: &str, principal: Option<&str>) -> Result<(), String> {
+    fn rotate_secret_of(
+        &self,
+        name: &str,
+        value: &str,
+        principal: Option<&str>,
+    ) -> Result<(), String> {
         let now = self.now();
         self.with_credential(name, principal, |entry| {
             entry.initial = CredentialValue::new(Some(value.to_string()), None, now);
@@ -412,12 +440,18 @@ pub fn is_step_scenario(file: &Json) -> bool {
 
 /// The single-record fixtures of the service (step scenarios are [`step_scenarios`]).
 pub fn fixtures(spec: &ParitySpec) -> Vec<Json> {
-    all_fixture_files(spec).into_iter().filter(|f| !is_step_scenario(f)).collect()
+    all_fixture_files(spec)
+        .into_iter()
+        .filter(|f| !is_step_scenario(f))
+        .collect()
 }
 
 /// The step-scenario files of the service, in file-name order.
 pub fn step_scenarios(spec: &ParitySpec) -> Vec<Json> {
-    all_fixture_files(spec).into_iter().filter(is_step_scenario).collect()
+    all_fixture_files(spec)
+        .into_iter()
+        .filter(is_step_scenario)
+        .collect()
 }
 
 /// Services whose recorded fixtures stay with the host provider that remains in `orbital-integrations`.
@@ -510,7 +544,14 @@ impl<'a> Replay<'a> {
                 fixture
                     .get("osExchanges")
                     .filter(|exchanges| !exchanges.is_null())
-                    .map(|exchanges| exchanges.as_array().expect("osExchanges is an array").iter().cloned().collect())
+                    .map(|exchanges| {
+                        exchanges
+                            .as_array()
+                            .expect("osExchanges is an array")
+                            .iter()
+                            .cloned()
+                            .collect()
+                    })
                     .unwrap_or_default(),
             ),
             os_sent: Mutex::new(Vec::new()),
@@ -522,7 +563,10 @@ impl<'a> Replay<'a> {
             beacon_queue: match fixture.get("beacon") {
                 None => false,
                 Some(Json::String(mode)) if mode == "queue" => true,
-                Some(other) => panic!("{}: `beacon` must be \"queue\" or absent, not {other}", text(fixture, "case")),
+                Some(other) => panic!(
+                    "{}: `beacon` must be \"queue\" or absent, not {other}",
+                    text(fixture, "case")
+                ),
             },
             page: fixture.get("page").cloned(),
         })
@@ -542,16 +586,26 @@ impl<'a> Replay<'a> {
             .iter()
             .map(|arg| by_value(serde_json::to_value(arg).expect("os arg json")))
             .collect();
-        self.os_sent.lock().expect("os sent").push(OsCall { op, args: actual.clone() });
+        self.os_sent.lock().expect("os sent").push(OsCall {
+            op,
+            args: actual.clone(),
+        });
         let exchange = self
             .os_script
             .lock()
             .expect("os script")
             .pop_front()
-            .unwrap_or_else(|| panic!("{case}: the atom made an unrecorded os ask: {} {actual:?}", op.name()));
+            .unwrap_or_else(|| {
+                panic!(
+                    "{case}: the atom made an unrecorded os ask: {} {actual:?}",
+                    op.name()
+                )
+            });
         let recorded = &exchange["os"];
         assert_eq!(op.name(), text(recorded, "op"), "{case}: os op");
-        let expected = recorded["args"].as_array().unwrap_or_else(|| panic!("{case}: os args must be an array"));
+        let expected = recorded["args"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{case}: os args must be an array"));
         assert!(
             json_matches(&Json::Array(expected.clone()), &Json::Array(actual.clone())),
             "{case}: {} args: expected {expected:?} got {actual:?}",
@@ -564,7 +618,8 @@ impl<'a> Replay<'a> {
             (None, Some(error)) => {
                 let kind = text(error, "kind");
                 Err(OsError::new(
-                    OsErrorKind::from_name(kind).unwrap_or_else(|| panic!("{case}: unknown os error kind {kind}")),
+                    OsErrorKind::from_name(kind)
+                        .unwrap_or_else(|| panic!("{case}: unknown os error kind {kind}")),
                     text(error, "message"),
                 ))
             }
@@ -629,7 +684,10 @@ impl<'a> Replay<'a> {
         );
         let expected_body = contract.request_body.bytes(recorded);
         let body_matches = request.body == expected_body
-            || match (std::str::from_utf8(&expected_body), std::str::from_utf8(&request.body)) {
+            || match (
+                std::str::from_utf8(&expected_body),
+                std::str::from_utf8(&request.body),
+            ) {
                 (Ok(expected), Ok(actual)) => matches_recorded(expected, actual),
                 _ => false,
             };
@@ -690,7 +748,9 @@ impl<'a> Replay<'a> {
 
     fn answer_io(&self, request: &IoRequest, store: &dyn EntitySource) -> IoAnswer {
         match request {
-            IoRequest::Http { request, delay_ms, .. } => {
+            IoRequest::Http {
+                request, delay_ms, ..
+            } => {
                 // The host waits `delayMs` before it sends; on the virtual clock each wait follows the previous send.
                 let mut times = self.send_times.lock().expect("send times");
                 let previous = times.last().copied().unwrap_or(self.host.now() as u64);
@@ -717,12 +777,16 @@ impl<'a> Replay<'a> {
                 name,
                 value,
                 principal,
-            } => IoAnswer::SecretRotate(self.host.rotate_secret_of(name, value, principal.as_deref())),
-            IoRequest::CredentialStatus { name, principal } => IoAnswer::CredentialStatus(
-                self.host
-                    .secret_of(name, principal.as_deref())
-                    .map(|value| credential_status_connected(value.as_deref(), principal.as_deref())),
-            ),
+            } => IoAnswer::SecretRotate(self.host.rotate_secret_of(
+                name,
+                value,
+                principal.as_deref(),
+            )),
+            IoRequest::CredentialStatus { name, principal } => {
+                IoAnswer::CredentialStatus(self.host.secret_of(name, principal.as_deref()).map(
+                    |value| credential_status_connected(value.as_deref(), principal.as_deref()),
+                ))
+            }
             IoRequest::CredentialForget { name, principal } => {
                 IoAnswer::CredentialForget(self.host.forget_of(name, principal.as_deref()))
             }
@@ -733,10 +797,11 @@ impl<'a> Replay<'a> {
                 self.sent.lock().expect("sent").push(request.clone());
                 IoAnswer::HttpBeacon(Ok(BeaconOutcome::Queued))
             }
-            IoRequest::HttpBeacon { request, .. } => IoAnswer::HttpBeacon(
-                self.answer(request)
-                    .map(|reply| BeaconOutcome::Fetched { status: reply.status }),
-            ),
+            IoRequest::HttpBeacon { request, .. } => {
+                IoAnswer::HttpBeacon(self.answer(request).map(|reply| BeaconOutcome::Fetched {
+                    status: reply.status,
+                }))
+            }
             IoRequest::PageFacts { fields } => IoAnswer::PageFacts(Ok(self.page_facts(fields))),
             IoRequest::Random { bytes } => {
                 let value = self
@@ -799,7 +864,10 @@ fn expected_timeout(spec: &ParitySpec, fixture: &Json) -> Duration {
         .and_then(|raw| match (raw.parse::<u64>(), spec.unreadable_knob) {
             (Ok(ms), _) => Some(ms),
             (Err(_), UnreadableKnob::UseDefault) => None,
-            (Err(_), UnreadableKnob::Fail) => panic!("{}: timeout env {raw:?} is not a number", text(fixture, "case")),
+            (Err(_), UnreadableKnob::Fail) => panic!(
+                "{}: timeout env {raw:?} is not a number",
+                text(fixture, "case")
+            ),
         })
         .unwrap_or(spec.default_timeout_ms);
     Duration::from_millis(ms)
@@ -822,7 +890,10 @@ fn require_knob(json: &mut Json, case: &str, knob: &str, value: &Json) -> Result
     if set_knob(json, knob, value) {
         Ok(())
     } else {
-        Err(KnobError::Undeclared { case: case.to_string(), knob: knob.to_string() })
+        Err(KnobError::Undeclared {
+            case: case.to_string(),
+            knob: knob.to_string(),
+        })
     }
 }
 
@@ -857,7 +928,9 @@ pub fn patched_json(spec: &ParitySpec, fixture: &Json) -> Result<Json, KnobError
         require_knob(&mut json, case, knob, &value)?;
     }
     for (variable, knob) in spec.presence_knobs {
-        let present = fixture["env"][*variable].as_str().is_some_and(|value| !value.is_empty());
+        let present = fixture["env"][*variable]
+            .as_str()
+            .is_some_and(|value| !value.is_empty());
         require_knob(&mut json, case, knob, &json!(present))?;
     }
     for (name, knob, value) in spec.case_knobs {
@@ -877,8 +950,9 @@ fn lowered(spec: &ParitySpec, fixture: &Json) -> OrbitalSchema {
     orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
     let path = atom_path(spec);
     let options = orbital_compiler::CompilerOptions::from_env();
-    let (schema, _) = orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path))
-        .unwrap_or_else(|e| panic!("resolve {}: {e}", path.display()));
+    let (schema, _) =
+        orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path))
+            .unwrap_or_else(|e| panic!("resolve {}: {e}", path.display()));
     schema
 }
 
@@ -943,7 +1017,9 @@ impl<'a> ParitySession<'a> {
     /// A session for a step scenario: the atom lowered with the scenario's env, the fixture clock at its `nowMs`.
     pub fn for_scenario(spec: &'a ParitySpec, scenario: &Json) -> Self {
         let authority = FixtureAuthority {
-            now_ms: scenario.get("nowMs").map(|ms| ms.as_u64().expect("nowMs is a whole number")),
+            now_ms: scenario
+                .get("nowMs")
+                .map(|ms| ms.as_u64().expect("nowMs is a whole number")),
             ..FixtureAuthority::default()
         };
         Self::new(spec, scenario, authority)
@@ -966,16 +1042,27 @@ impl<'a> ParitySession<'a> {
 
     fn steps(&mut self, scenario: &Json, assert_steps: bool) -> Vec<(Json, Run)> {
         let case = text(scenario, "case").to_string();
-        let mut clock = scenario.get("nowMs").map(|ms| ms.as_u64().expect("nowMs is a whole number"));
+        let mut clock = scenario
+            .get("nowMs")
+            .map(|ms| ms.as_u64().expect("nowMs is a whole number"));
         let mut emitted: Vec<Json> = Vec::new();
         let mut done = Vec::new();
-        for (index, step) in scenario["steps"].as_array().expect("steps").iter().enumerate() {
+        for (index, step) in scenario["steps"]
+            .as_array()
+            .expect("steps")
+            .iter()
+            .enumerate()
+        {
             let resolve = |value: &Json| resolve_placeholders(value, &emitted, &case, index);
             let at_ms = match (step.get("clockMs"), step.get("advanceMs")) {
                 (Some(at), None) => Some(at.as_u64().expect("clockMs is a whole number")),
-                (None, Some(by)) => clock.map(|now| now + by.as_u64().expect("advanceMs is a whole number")),
+                (None, Some(by)) => {
+                    clock.map(|now| now + by.as_u64().expect("advanceMs is a whole number"))
+                }
                 (None, None) => clock,
-                (Some(_), Some(_)) => panic!("{case}#{index}: a step has clockMs or advanceMs, not both"),
+                (Some(_), Some(_)) => {
+                    panic!("{case}#{index}: a step has clockMs or advanceMs, not both")
+                }
             };
             clock = at_ms.or(clock);
             let fixture = json!({
@@ -987,26 +1074,37 @@ impl<'a> ParitySession<'a> {
                 "osExchanges": resolve(&step["osExchanges"]),
                 "outcome": resolve(&step["outcome"]),
             });
-            let entropy = step
-                .get("randoms")
-                .and_then(Json::as_array)
-                .into_iter()
-                .flatten()
-                .map(|bytes| match bytes {
-                    Json::String(text) => orbital_core::codec::base64_decode(text)
-                        .unwrap_or_else(|e| panic!("{case}#{index}: randoms entry is not base64: {e}")),
-                    Json::Array(items) => items
-                        .iter()
-                        .map(|b| u8::try_from(b.as_u64().expect("random byte")).expect("random byte"))
-                        .collect(),
-                    other => panic!("{case}#{index}: randoms entry must be base64 or bytes, not {other}"),
-                })
-                .collect();
+            let entropy =
+                step.get("randoms")
+                    .and_then(Json::as_array)
+                    .into_iter()
+                    .flatten()
+                    .map(|bytes| match bytes {
+                        Json::String(text) => orbital_core::codec::base64_decode(text)
+                            .unwrap_or_else(|e| {
+                                panic!("{case}#{index}: randoms entry is not base64: {e}")
+                            }),
+                        Json::Array(items) => items
+                            .iter()
+                            .map(|b| {
+                                u8::try_from(b.as_u64().expect("random byte")).expect("random byte")
+                            })
+                            .collect(),
+                        other => panic!(
+                            "{case}#{index}: randoms entry must be base64 or bytes, not {other}"
+                        ),
+                    })
+                    .collect();
             let user = match step.get("user") {
                 Some(user) => serde_json::from_value(user.clone()).expect("step user"),
                 None => Value::Null,
             };
-            let replay = ReplayStep { user, at_ms, entropy, ..Default::default() };
+            let replay = ReplayStep {
+                user,
+                at_ms,
+                entropy,
+                ..Default::default()
+            };
             let run = if assert_steps {
                 self.check_without_deadlines(&fixture, replay)
             } else {
@@ -1036,12 +1134,18 @@ impl<'a> ParitySession<'a> {
 
     /// The credential value the host holds now (after any rotation), for assertions on a rotated token.
     pub fn held_credential(&self, name: &str, principal: Option<&str>) -> Option<String> {
-        self.host.secret_of(name, principal).expect("fixture credential")
+        self.host
+            .secret_of(name, principal)
+            .expect("fixture credential")
     }
 
     /// The durable rotations the atom asked for so far, in order: `(credential, principal)`.
     pub fn rotations(&self) -> Vec<(String, Option<String>)> {
-        self.host.rotations.lock().expect("fixture rotations").clone()
+        self.host
+            .rotations
+            .lock()
+            .expect("fixture rotations")
+            .clone()
     }
 
     pub fn check(&mut self, fixture: &Json, step: ReplayStep) -> Run {
@@ -1121,19 +1225,24 @@ fn resolve_placeholders(value: &Json, emitted: &[Json], case: &str, step: usize)
         Json::String(text) if text.contains("{{") => {
             let lookup = |reference: &str| -> Json {
                 let (n, path) = reference.split_once('.').unwrap_or((reference, ""));
-                let n: usize = n.parse().unwrap_or_else(|_| panic!("{case}#{step}: placeholder {{{{{reference}}}}}"));
-                let mut found = emitted
-                    .get(n)
-                    .unwrap_or_else(|| panic!("{case}#{step}: {{{{{reference}}}}} names a step that has not run"));
+                let n: usize = n
+                    .parse()
+                    .unwrap_or_else(|_| panic!("{case}#{step}: placeholder {{{{{reference}}}}}"));
+                let mut found = emitted.get(n).unwrap_or_else(|| {
+                    panic!("{case}#{step}: {{{{{reference}}}}} names a step that has not run")
+                });
                 for key in path.split('.').filter(|k| !k.is_empty()) {
-                    found = found
-                        .get(key)
-                        .unwrap_or_else(|| panic!("{case}#{step}: {{{{{reference}}}}}: step {n} emitted no `{key}`"));
+                    found = found.get(key).unwrap_or_else(|| {
+                        panic!("{case}#{step}: {{{{{reference}}}}}: step {n} emitted no `{key}`")
+                    });
                 }
                 found.clone()
             };
             let trimmed = text.trim();
-            if let Some(reference) = trimmed.strip_prefix("{{").and_then(|t| t.strip_suffix("}}")) {
+            if let Some(reference) = trimmed
+                .strip_prefix("{{")
+                .and_then(|t| t.strip_suffix("}}"))
+            {
                 if !reference.contains("{{") {
                     return lookup(reference);
                 }
@@ -1142,7 +1251,10 @@ fn resolve_placeholders(value: &Json, emitted: &[Json], case: &str, step: usize)
             let mut rest = text.as_str();
             while let Some(start) = rest.find("{{") {
                 out.push_str(&rest[..start]);
-                let end = rest[start..].find("}}").unwrap_or_else(|| panic!("{case}#{step}: unclosed placeholder")) + start;
+                let end = rest[start..]
+                    .find("}}")
+                    .unwrap_or_else(|| panic!("{case}#{step}: unclosed placeholder"))
+                    + start;
                 match lookup(&rest[start + 2..end]) {
                     Json::String(s) => out.push_str(&s),
                     other => out.push_str(&other.to_string()),
@@ -1152,9 +1264,16 @@ fn resolve_placeholders(value: &Json, emitted: &[Json], case: &str, step: usize)
             out.push_str(rest);
             Json::String(out)
         }
-        Json::Array(items) => Json::Array(items.iter().map(|v| resolve_placeholders(v, emitted, case, step)).collect()),
+        Json::Array(items) => Json::Array(
+            items
+                .iter()
+                .map(|v| resolve_placeholders(v, emitted, case, step))
+                .collect(),
+        ),
         Json::Object(map) => Json::Object(
-            map.iter().map(|(k, v)| (k.clone(), resolve_placeholders(v, emitted, case, step))).collect(),
+            map.iter()
+                .map(|(k, v)| (k.clone(), resolve_placeholders(v, emitted, case, step)))
+                .collect(),
         ),
         other => other.clone(),
     }
@@ -1190,7 +1309,9 @@ fn parts(expected: &str) -> Vec<Part<'_>> {
     let mut literal_start = 0;
     let mut index = 0;
     while index < rest.len() {
-        let hit = TOKENS.iter().find(|(token, _)| rest[index..].starts_with(token));
+        let hit = TOKENS
+            .iter()
+            .find(|(token, _)| rest[index..].starts_with(token));
         match hit {
             Some((token, width)) => {
                 if index > literal_start {
@@ -1220,7 +1341,9 @@ fn part_matches(parts: &[Part<'_>], actual: &str) -> bool {
         Some((Part::Hex(width), rest)) => {
             actual.len() >= *width
                 && actual.is_char_boundary(*width)
-                && actual[..*width].bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                && actual[..*width]
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
                 && part_matches(rest, &actual[*width..])
         }
         Some((Part::UrlSafe, rest)) => {
@@ -1228,7 +1351,9 @@ fn part_matches(parts: &[Part<'_>], actual: &str) -> bool {
                 .bytes()
                 .take_while(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
                 .count();
-            (1..=run).rev().any(|len| part_matches(rest, &actual[len..]))
+            (1..=run)
+                .rev()
+                .any(|len| part_matches(rest, &actual[len..]))
         }
     }
 }
@@ -1242,9 +1367,13 @@ pub fn matches_recorded(expected: &str, actual: &str) -> bool {
 pub fn json_matches(expected: &Json, actual: &Json) -> bool {
     match (expected, actual) {
         (Json::String(e), Json::String(a)) => matches_recorded(e, a),
-        (Json::Array(e), Json::Array(a)) => e.len() == a.len() && e.iter().zip(a).all(|(e, a)| json_matches(e, a)),
+        (Json::Array(e), Json::Array(a)) => {
+            e.len() == a.len() && e.iter().zip(a).all(|(e, a)| json_matches(e, a))
+        }
         (Json::Object(e), Json::Object(a)) => {
-            e.len() == a.len() && e.iter().all(|(k, v)| a.get(k).is_some_and(|actual| json_matches(v, actual)))
+            e.len() == a.len()
+                && e.iter()
+                    .all(|(k, v)| a.get(k).is_some_and(|actual| json_matches(v, actual)))
         }
         _ => expected == actual,
     }
@@ -1279,7 +1408,10 @@ fn assert_run(spec: &ParitySpec, fixture: &Json, run: &Run) {
         fixture["exchanges"].as_array().expect("exchanges").len(),
         "{case}: request count"
     );
-    assert_eq!(run.unused_os, 0, "{case}: recorded os asks the atom never made");
+    assert_eq!(
+        run.unused_os, 0,
+        "{case}: recorded os asks the atom never made"
+    );
     assert_eq!(run.unused_entropy, 0, "{case}: unused entropy");
     if is_ok(fixture) {
         assert!(
@@ -1295,7 +1427,8 @@ fn assert_run(spec: &ParitySpec, fixture: &Json, run: &Run) {
         );
     } else {
         let outcome = &fixture["outcome"];
-        let mut expected = json!({"code": outcome["code"], "message": outcome["message"]});
+        let mut expected = json!({"code": outcome["code"]});
+        expected[spec.failure_message_field] = outcome["message"].clone();
         for (field, value) in (spec.failure_extras)(fixture) {
             expected[field] = value;
         }
@@ -1406,7 +1539,11 @@ pub fn assert_no_secrets_allowing(spec: &ParitySpec, allowed: &[&str]) {
                 );
             }
         }
-        let mut exchanges: Vec<&Json> = fixture["exchanges"].as_array().into_iter().flatten().collect();
+        let mut exchanges: Vec<&Json> = fixture["exchanges"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .collect();
         for step in fixture["steps"].as_array().into_iter().flatten() {
             exchanges.extend(step["exchanges"].as_array().expect("step exchanges"));
         }
@@ -1424,7 +1561,10 @@ pub fn assert_no_secrets_allowing(spec: &ParitySpec, allowed: &[&str]) {
     }
     let source = std::fs::read_to_string(atom_path(spec)).expect("read the atom");
     for value in allowed.iter().filter(|value| !value.is_empty()) {
-        assert!(!source.contains(value), "an allowed test secret appears in the atom");
+        assert!(
+            !source.contains(value),
+            "an allowed test secret appears in the atom"
+        );
     }
     assert_eq!(
         source.contains(": secret"),

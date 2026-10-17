@@ -1,0 +1,31 @@
+{
+  "service": "maps",
+  "action": "geocode",
+  "case": "geocode-not-found",
+  "env": {},
+  "params": {
+    "address": "zzqqxxnotaplace"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=zzqqxxnotaplace",
+        "headers": {
+          "accept": "application/json",
+          "user-agent": "Almadar/1.0 (https://almadar.dev)"
+        },
+        "body": ""
+      },
+      "response": {
+        "status": 200,
+        "body": "[]"
+      }
+    }
+  ],
+  "outcome": {
+    "ok": false,
+    "code": "not_found",
+    "message": "no place matches the address"
+  }
+}

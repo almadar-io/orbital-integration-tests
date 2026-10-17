@@ -37,7 +37,11 @@
           0.5,
           0.25
         ]
-      ]
+      ],
+      "usage": {
+        "promptTokens": 5,
+        "totalTokens": 5
+      }
     }
   }
 }

@@ -43,7 +43,11 @@
           0.3,
           0.4
         ]
-      ]
+      ],
+      "usage": {
+        "promptTokens": 5,
+        "totalTokens": 5
+      }
     }
   }
 }
