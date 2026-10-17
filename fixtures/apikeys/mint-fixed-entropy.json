@@ -1,0 +1,71 @@
+{
+  "service": "apikeys",
+  "case": "mint-fixed-entropy",
+  "action": "mint",
+  "env": {
+    "ALMADAR_API_KEY_SALT": "00112233445566778899"
+  },
+  "params": {
+    "extra": [
+      {
+        "name": "label",
+        "value": "CI key"
+      },
+      {
+        "name": "owner",
+        "value": "team-1"
+      }
+    ]
+  },
+  "randoms": [
+    [
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171,
+      171
+    ]
+  ],
+  "exchanges": [],
+  "outcome": {
+    "ok": true,
+    "data": {
+      "plaintext": "sk_live_0e9477cf4605be3c22f072fbb33a598877b51ec0a097d964bf06694de0fc497e",
+      "keyHash": "1dac766300b5dba31ab53a18ef01ad07e57fe36303f03b3b31418e894f8d8a4a",
+      "lastFour": "497e"
+    }
+  },
+  "row": {
+    "id": "1dac766300b5dba31ab53a18ef01ad07e57fe36303f03b3b31418e894f8d8a4a",
+    "lastFour": "497e",
+    "label": "CI key",
+    "owner": "team-1"
+  }
+}

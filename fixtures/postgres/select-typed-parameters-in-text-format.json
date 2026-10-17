@@ -1,0 +1,227 @@
+{
+  "service": "postgres",
+  "case": "select-typed-parameters-in-text-format",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT $1::int + $2::int AS sum, $3::text AS t, $4::boolean AS b, $5 AS u, $6::numeric AS n, $7::jsonb AS j",
+        "params": [
+          1,
+          2,
+          "x",
+          true,
+          "unknown-typed",
+          10.5,
+          "{\"a\":1}"
+        ]
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "AAAAYQADAAB1c2VyAHBvc3RncmVzAGRhdGFiYXNlAHBvc3RncmVzAGNsaWVudF9lbmNvZGluZwBVVEY4AG9wdGlvbnMALWMgc3RhdGVtZW50X3RpbWVvdXQ9MTAwMDAAAA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 97
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAABcAAAAKU0NSQU0tU0hBLTI1NgAA",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAD5TQ1JBTS1TSEEtMjU2AAAAAChuLCxuPXBvc3RncmVzLHI9QVFJREJBVUdCd2dKQ2dzTURRNFBFQkVT"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 63
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAFwAAAALcj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFQUZ6OHNRcWlCazVrbXM0NC9aTTdYTWgscz1uS0hHa2V4RkVMTS9oUzdMdmlxbFJnPT0saT00MDk2",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAGxjPWJpd3Mscj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFQUZ6OHNRcWlCazVrbXM0NC9aTTdYTWgscD1udHo1RktmekhmWHRBTmwyeWdYSGdmZlluWHE0Vmh5Ym1ZVmhsM0pYVFFBPQ=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 109
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAADYAAAAMdj04K3prN01zeXNjMlpNTTVkTWtEWDREQmFvemgxV25VdEpOV1FIUlk5NXMwPVIAAAAIAAAAAFMAAAAXaW5faG90X3N0YW5kYnkAb2ZmAFMAAAAZaW50ZWdlcl9kYXRldGltZXMAb24AUwAAABVUaW1lWm9uZQBFdGMvVVRDAFMAAAAbSW50ZXJ2YWxTdHlsZQBwb3N0Z3JlcwBTAAAAFGlzX3N1cGVydXNlcgBvbgBTAAAAFmFwcGxpY2F0aW9uX25hbWUAAFMAAAAmZGVmYXVsdF90cmFuc2FjdGlvbl9yZWFkX29ubHkAb2ZmAFMAAAAac2NyYW1faXRlcmF0aW9ucwA0MDk2AFMAAAAXRGF0ZVN0eWxlAElTTywgTURZAFMAAAAjc3RhbmRhcmRfY29uZm9ybWluZ19zdHJpbmdzAG9uAFMAAAAjc2Vzc2lvbl9hdXRob3JpemF0aW9uAHBvc3RncmVzAFMAAAAZY2xpZW50X2VuY29kaW5nAFVURjgAUwAAADNzZXJ2ZXJfdmVyc2lvbgAxNi4xNSAoRGViaWFuIDE2LjE1LTEucGdkZzEzKzIpAFMAAAAZc2VydmVyX2VuY29kaW5nAFVURjgASwAAAAwAAADGvFhBeFoAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "UAAAAHMAU0VMRUNUICQxOjppbnQgKyAkMjo6aW50IEFTIHN1bSwgJDM6OnRleHQgQVMgdCwgJDQ6OmJvb2xlYW4gQVMgYiwgJDUgQVMgdSwgJDY6Om51bWVyaWMgQVMgbiwgJDc6Ompzb25iIEFTIGoAAABCAAAARwAAAAAABwAAAAExAAAAATIAAAABeAAAAAR0cnVlAAAADXVua25vd24tdHlwZWQAAAAEMTAuNQAAAAd7ImEiOjF9AABEAAAABlAARQAAAAkAAAAAAFMAAAAE"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 210
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "MQAAAAQyAAAABFQAAACAAAZzdW0AAAAAAAAAAAAAFwAE/////wAAdAAAAAAAAAAAAAAZ////////AABiAAAAAAAAAAAAABAAAf////8AAHUAAAAAAAAAAAAAGf///////wAAbgAAAAAAAAAAAAak////////AABqAAAAAAAAAAAADtr///////8AAEQAAAA6AAYAAAABMwAAAAF4AAAAAXQAAAANdW5rbm93bi10eXBlZAAAAAQxMC41AAAACHsiYSI6IDF9QwAAAA1TRUxFQ1QgMQBaAAAABUk=",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "WAAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 5
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "rows": [
+            {
+              "sum": 3,
+              "t": "x",
+              "b": true,
+              "u": "unknown-typed",
+              "n": "10.5",
+              "j": "{\"a\": 1}"
+            }
+          ],
+          "rowCount": 1,
+          "columns": [
+            {
+              "name": "sum",
+              "typeOid": 23
+            },
+            {
+              "name": "t",
+              "typeOid": 25
+            },
+            {
+              "name": "b",
+              "typeOid": 16
+            },
+            {
+              "name": "u",
+              "typeOid": 25
+            },
+            {
+              "name": "n",
+              "typeOid": 1700
+            },
+            {
+              "name": "j",
+              "typeOid": 3802
+            }
+          ]
+        }
+      },
+      "randoms": [
+        "AQIDBAUGBwgJCgsMDQ4PEBES"
+      ]
+    }
+  ]
+}

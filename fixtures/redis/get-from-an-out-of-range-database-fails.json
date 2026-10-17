@@ -1,0 +1,72 @@
+{
+  "service": "redis",
+  "case": "get-from-an-out-of-range-database-fails",
+  "action": "get",
+  "env": {},
+  "params": {
+    "key": "k"
+  },
+  "exchanges": [],
+  "osExchanges": [
+    {
+      "os": {
+        "op": "os/tcp-connect",
+        "args": [
+          "redis.example.test",
+          6379
+        ]
+      },
+      "answer": {
+        "ok": {
+          "sock": 3
+        }
+      }
+    },
+    {
+      "os": {
+        "op": "os/send",
+        "args": [
+          3,
+          "KjINCiQ2DQpTRUxFQ1QNCiQyDQo5OQ0K"
+        ]
+      },
+      "answer": {
+        "ok": {
+          "bytes": 24
+        }
+      }
+    },
+    {
+      "os": {
+        "op": "os/recv",
+        "args": [
+          3,
+          16384
+        ]
+      },
+      "answer": {
+        "ok": {
+          "data": "LUVSUiBEQiBpbmRleCBpcyBvdXQgb2YgcmFuZ2UNCg==",
+          "eof": false
+        }
+      }
+    },
+    {
+      "os": {
+        "op": "os/close",
+        "args": [
+          3
+        ]
+      },
+      "answer": {
+        "ok": {}
+      }
+    }
+  ],
+  "outcome": {
+    "ok": false,
+    "kind": "redis",
+    "code": "ERR",
+    "message": "ERR DB index is out of range"
+  }
+}

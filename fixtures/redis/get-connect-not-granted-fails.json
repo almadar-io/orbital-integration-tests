@@ -1,0 +1,34 @@
+{
+  "service": "redis",
+  "case": "get-connect-not-granted-fails",
+  "action": "get",
+  "env": {},
+  "params": {
+    "key": "k"
+  },
+  "exchanges": [],
+  "osExchanges": [
+    {
+      "os": {
+        "op": "os/tcp-connect",
+        "args": [
+          "redis.example.test",
+          6379
+        ]
+      },
+      "answer": {
+        "error": {
+          "kind": "denied",
+          "message": "os/tcp-connect: redis.example.test:6379 is not granted"
+        }
+      }
+    }
+  ],
+  "outcome": {
+    "ok": false,
+    "kind": "refused",
+    "code": null,
+    "message": "os/tcp-connect: redis.example.test:6379 is not granted"
+  },
+  "synthetic": "the host's refusal answer is written by hand"
+}

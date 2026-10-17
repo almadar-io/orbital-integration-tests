@@ -1,0 +1,169 @@
+{
+  "service": "postgres",
+  "case": "missing-table-fails-with-its-sqlstate",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT * FROM nope_table",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "AAAAYQADAAB1c2VyAHBvc3RncmVzAGRhdGFiYXNlAHBvc3RncmVzAGNsaWVudF9lbmNvZGluZwBVVEY4AG9wdGlvbnMALWMgc3RhdGVtZW50X3RpbWVvdXQ9MTAwMDAAAA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 97
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAABcAAAAKU0NSQU0tU0hBLTI1NgAA",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAD5TQ1JBTS1TSEEtMjU2AAAAAChuLCxuPXBvc3RncmVzLHI9QVFJREJBVUdCd2dKQ2dzTURRNFBFQkVT"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 63
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAFwAAAALcj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNSVHdmL0daUVNVL0dvbTVBdVZTQ3pFVGEscz1uS0hHa2V4RkVMTS9oUzdMdmlxbFJnPT0saT00MDk2",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAGxjPWJpd3Mscj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNSVHdmL0daUVNVL0dvbTVBdVZTQ3pFVGEscD1rUHYwUmdrMjZYaHdsMnRTY1dFWmFOM2lvN3JaeHZRckF2TGJtclhzTFJvPQ=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 109
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAADYAAAAMdj1RRmg5bjZKQnRqd1k4T0lRY2JyWnJmU0FWejUvNzJhcWU5aDNWanNFRUpvPVIAAAAIAAAAAFMAAAAXaW5faG90X3N0YW5kYnkAb2ZmAFMAAAAZaW50ZWdlcl9kYXRldGltZXMAb24AUwAAABVUaW1lWm9uZQBFdGMvVVRDAFMAAAAbSW50ZXJ2YWxTdHlsZQBwb3N0Z3JlcwBTAAAAFGlzX3N1cGVydXNlcgBvbgBTAAAAFmFwcGxpY2F0aW9uX25hbWUAAFMAAAAmZGVmYXVsdF90cmFuc2FjdGlvbl9yZWFkX29ubHkAb2ZmAFMAAAAac2NyYW1faXRlcmF0aW9ucwA0MDk2AFMAAAAXRGF0ZVN0eWxlAElTTywgTURZAFMAAAAjc3RhbmRhcmRfY29uZm9ybWluZ19zdHJpbmdzAG9uAFMAAAAjc2Vzc2lvbl9hdXRob3JpemF0aW9uAHBvc3RncmVzAFMAAAAZY2xpZW50X2VuY29kaW5nAFVURjgAUwAAADNzZXJ2ZXJfdmVyc2lvbgAxNi4xNSAoRGViaWFuIDE2LjE1LTEucGdkZzEzKzIpAFMAAAAZc2VydmVyX2VuY29kaW5nAFVURjgASwAAAAwAAADMivM7KFoAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "UAAAACAAU0VMRUNUICogRlJPTSBub3BlX3RhYmxlAAAAQgAAAAwAAAAAAAAAAEQAAAAGUABFAAAACQAAAAAAUwAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 68
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "RQAAAG1TRVJST1IAVkVSUk9SAEM0MlAwMQBNcmVsYXRpb24gIm5vcGVfdGFibGUiIGRvZXMgbm90IGV4aXN0AFAxNQBGcGFyc2VfcmVsYXRpb24uYwBMMTQ0OQBScGFyc2VyT3BlblRhYmxlAABaAAAABUk=",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": false,
+        "kind": "postgres",
+        "code": "42P01",
+        "message": "relation \"nope_table\" does not exist"
+      },
+      "randoms": [
+        "AQIDBAUGBwgJCgsMDQ4PEBES"
+      ]
+    }
+  ]
+}

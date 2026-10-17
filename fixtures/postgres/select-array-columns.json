@@ -1,0 +1,242 @@
+{
+  "service": "postgres",
+  "case": "select-array-columns",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT ARRAY[1,2,NULL]::int4[] a, ARRAY['a b',NULL,'q\"x']::text[] s, ARRAY[[1,2],[3,4]]::int4[] m, '{}'::int4[] e, ARRAY[true,false] b, ARRAY[1.5,2.5]::float8[] f",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "AAAAYQADAAB1c2VyAHBvc3RncmVzAGRhdGFiYXNlAHBvc3RncmVzAGNsaWVudF9lbmNvZGluZwBVVEY4AG9wdGlvbnMALWMgc3RhdGVtZW50X3RpbWVvdXQ9MTAwMDAAAA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 97
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAABcAAAAKU0NSQU0tU0hBLTI1NgAA",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAD5TQ1JBTS1TSEEtMjU2AAAAAChuLCxuPXBvc3RncmVzLHI9QVFJREJBVUdCd2dKQ2dzTURRNFBFQkVT"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 63
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAFwAAAALcj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVN6VFFUWU00bXhLNndkbENMRDNIcXB1M0Qscz1uS0hHa2V4RkVMTS9oUzdMdmlxbFJnPT0saT00MDk2",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAGxjPWJpd3Mscj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVN6VFFUWU00bXhLNndkbENMRDNIcXB1M0QscD1UdkZGT1hDbVhVQkNkUE83d2M0bDdrQVp2Z3J1QVJZUGhFZDBQY3lFdDBFPQ=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 109
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAADYAAAAMdj1ENkYzR2hkdE1QQlRCVXMrVHJGVmJCZ2VFU1BhWlhCNi9QNGZDcUdNdk93PVIAAAAIAAAAAFMAAAAXaW5faG90X3N0YW5kYnkAb2ZmAFMAAAAZaW50ZWdlcl9kYXRldGltZXMAb24AUwAAABVUaW1lWm9uZQBFdGMvVVRDAFMAAAAbSW50ZXJ2YWxTdHlsZQBwb3N0Z3JlcwBTAAAAFGlzX3N1cGVydXNlcgBvbgBTAAAAFmFwcGxpY2F0aW9uX25hbWUAAFMAAAAmZGVmYXVsdF90cmFuc2FjdGlvbl9yZWFkX29ubHkAb2ZmAFMAAAAac2NyYW1faXRlcmF0aW9ucwA0MDk2AFMAAAAXRGF0ZVN0eWxlAElTTywgTURZAFMAAAAjc3RhbmRhcmRfY29uZm9ybWluZ19zdHJpbmdzAG9uAFMAAAAjc2Vzc2lvbl9hdXRob3JpemF0aW9uAHBvc3RncmVzAFMAAAAZY2xpZW50X2VuY29kaW5nAFVURjgAUwAAADNzZXJ2ZXJfdmVyc2lvbgAxNi4xNSAoRGViaWFuIDE2LjE1LTEucGdkZzEzKzIpAFMAAAAZc2VydmVyX2VuY29kaW5nAFVURjgASwAAAAwAAADIGKj9sFoAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "UAAAAKoAU0VMRUNUIEFSUkFZWzEsMixOVUxMXTo6aW50NFtdIGEsIEFSUkFZWydhIGInLE5VTEwsJ3EieCddOjp0ZXh0W10gcywgQVJSQVlbWzEsMl0sWzMsNF1dOjppbnQ0W10gbSwgJ3t9Jzo6aW50NFtdIGUsIEFSUkFZW3RydWUsZmFsc2VdIGIsIEFSUkFZWzEuNSwyLjVdOjpmbG9hdDhbXSBmAAAAQgAAAAwAAAAAAAAAAEQAAAAGUABFAAAACQAAAAAAUwAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 206
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "MQAAAAQyAAAABFQAAAB+AAZhAAAAAAAAAAAAA+////////8AAHMAAAAAAAAAAAAD8f///////wAAbQAAAAAAAAAAAAPv////////AABlAAAAAAAAAAAAA+////////8AAGIAAAAAAAAAAAAD6P///////wAAZgAAAAAAAAAAAAP+////////AABEAAAAWAAGAAAACnsxLDIsTlVMTH0AAAATeyJhIGIiLE5VTEwsInFcIngifQAAAA17ezEsMn0sezMsNH19AAAAAnt9AAAABXt0LGZ9AAAACXsxLjUsMi41fUMAAAANU0VMRUNUIDEAWgAAAAVJ",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "WAAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 5
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "rows": [
+            {
+              "a": [
+                1,
+                2,
+                null
+              ],
+              "s": [
+                "a b",
+                null,
+                "q\"x"
+              ],
+              "m": [
+                [
+                  1,
+                  2
+                ],
+                [
+                  3,
+                  4
+                ]
+              ],
+              "e": [],
+              "b": [
+                true,
+                false
+              ],
+              "f": [
+                1.5,
+                2.5
+              ]
+            }
+          ],
+          "rowCount": 1,
+          "columns": [
+            {
+              "name": "a",
+              "typeOid": 1007
+            },
+            {
+              "name": "s",
+              "typeOid": 1009
+            },
+            {
+              "name": "m",
+              "typeOid": 1007
+            },
+            {
+              "name": "e",
+              "typeOid": 1007
+            },
+            {
+              "name": "b",
+              "typeOid": 1000
+            },
+            {
+              "name": "f",
+              "typeOid": 1022
+            }
+          ]
+        }
+      },
+      "randoms": [
+        "AQIDBAUGBwgJCgsMDQ4PEBES"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "service": "postgres",
+  "case": "select-no-rows",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT id FROM users WHERE false",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "AAAAYQADAAB1c2VyAHBvc3RncmVzAGRhdGFiYXNlAHBvc3RncmVzAGNsaWVudF9lbmNvZGluZwBVVEY4AG9wdGlvbnMALWMgc3RhdGVtZW50X3RpbWVvdXQ9MTAwMDAAAA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 97
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAABcAAAAKU0NSQU0tU0hBLTI1NgAA",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAD5TQ1JBTS1TSEEtMjU2AAAAAChuLCxuPXBvc3RncmVzLHI9QVFJREJBVUdCd2dKQ2dzTURRNFBFQkVT"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 63
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAFwAAAALcj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVN2ZnRYL1MzUkNkbGE0VG9PVzVJYmptblkscz1uS0hHa2V4RkVMTS9oUzdMdmlxbFJnPT0saT00MDk2",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAGxjPWJpd3Mscj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVN2ZnRYL1MzUkNkbGE0VG9PVzVJYmptblkscD0zbTYxT2k1czA0bVpseXNwaDVGZE9aekVNVFdtZkYrd2x6bk9qdWZVRk5zPQ=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 109
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAADYAAAAMdj1oSlNRWFkyYS9DK3lFVWlmaVhEUjlKWE9CNGJjcUVFT2hDTEY1Nm5wbGJvPVIAAAAIAAAAAFMAAAAXaW5faG90X3N0YW5kYnkAb2ZmAFMAAAAZaW50ZWdlcl9kYXRldGltZXMAb24AUwAAABVUaW1lWm9uZQBFdGMvVVRDAFMAAAAbSW50ZXJ2YWxTdHlsZQBwb3N0Z3JlcwBTAAAAFGlzX3N1cGVydXNlcgBvbgBTAAAAFmFwcGxpY2F0aW9uX25hbWUAAFMAAAAmZGVmYXVsdF90cmFuc2FjdGlvbl9yZWFkX29ubHkAb2ZmAFMAAAAac2NyYW1faXRlcmF0aW9ucwA0MDk2AFMAAAAXRGF0ZVN0eWxlAElTTywgTURZAFMAAAAjc3RhbmRhcmRfY29uZm9ybWluZ19zdHJpbmdzAG9uAFMAAAAjc2Vzc2lvbl9hdXRob3JpemF0aW9uAHBvc3RncmVzAFMAAAAZY2xpZW50X2VuY29kaW5nAFVURjgAUwAAADNzZXJ2ZXJfdmVyc2lvbgAxNi4xNSAoRGViaWFuIDE2LjE1LTEucGdkZzEzKzIpAFMAAAAZc2VydmVyX2VuY29kaW5nAFVURjgASwAAAAwAAADEdb/0jFoAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "UAAAACgAU0VMRUNUIGlkIEZST00gdXNlcnMgV0hFUkUgZmFsc2UAAABCAAAADAAAAAAAAAAARAAAAAZQAEUAAAAJAAAAAABTAAAABA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 76
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "MQAAAAQyAAAABFQAAAAbAAFpZAAAAEAEAAEAAAAXAAT/////AABDAAAADVNFTEVDVCAwAFoAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "WAAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 5
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "rows": [],
+          "rowCount": 0,
+          "columns": [
+            {
+              "name": "id",
+              "typeOid": 23
+            }
+          ]
+        }
+      },
+      "randoms": [
+        "AQIDBAUGBwgJCgsMDQ4PEBES"
+      ]
+    }
+  ]
+}

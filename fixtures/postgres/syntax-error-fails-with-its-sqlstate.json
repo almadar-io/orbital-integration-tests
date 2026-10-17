@@ -1,0 +1,169 @@
+{
+  "service": "postgres",
+  "case": "syntax-error-fails-with-its-sqlstate",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT FROM WHERE",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "AAAAYQADAAB1c2VyAHBvc3RncmVzAGRhdGFiYXNlAHBvc3RncmVzAGNsaWVudF9lbmNvZGluZwBVVEY4AG9wdGlvbnMALWMgc3RhdGVtZW50X3RpbWVvdXQ9MTAwMDAAAA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 97
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAABcAAAAKU0NSQU0tU0hBLTI1NgAA",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAD5TQ1JBTS1TSEEtMjU2AAAAAChuLCxuPXBvc3RncmVzLHI9QVFJREJBVUdCd2dKQ2dzTURRNFBFQkVT"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 63
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAFwAAAALcj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNBeXNKM3ZOYTNvNEI0SU9FelQ2Nkh5d3oscz1uS0hHa2V4RkVMTS9oUzdMdmlxbFJnPT0saT00MDk2",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAGxjPWJpd3Mscj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNBeXNKM3ZOYTNvNEI0SU9FelQ2Nkh5d3oscD1MaFZ1Rm81MmFNNnNEZnZGZXBFYXYzQjh4NmJ1N3RNNjh2bGZYTnVnazhrPQ=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 109
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAADYAAAAMdj1taldEaXJZR3FyLyt5UnN4bllwdCtYb3RRRFF3Tng0RDBCUS9IQjJNNUo0PVIAAAAIAAAAAFMAAAAXaW5faG90X3N0YW5kYnkAb2ZmAFMAAAAZaW50ZWdlcl9kYXRldGltZXMAb24AUwAAABVUaW1lWm9uZQBFdGMvVVRDAFMAAAAbSW50ZXJ2YWxTdHlsZQBwb3N0Z3JlcwBTAAAAFGlzX3N1cGVydXNlcgBvbgBTAAAAFmFwcGxpY2F0aW9uX25hbWUAAFMAAAAmZGVmYXVsdF90cmFuc2FjdGlvbl9yZWFkX29ubHkAb2ZmAFMAAAAac2NyYW1faXRlcmF0aW9ucwA0MDk2AFMAAAAXRGF0ZVN0eWxlAElTTywgTURZAFMAAAAjc3RhbmRhcmRfY29uZm9ybWluZ19zdHJpbmdzAG9uAFMAAAAjc2Vzc2lvbl9hdXRob3JpemF0aW9uAHBvc3RncmVzAFMAAAAZY2xpZW50X2VuY29kaW5nAFVURjgAUwAAADNzZXJ2ZXJfdmVyc2lvbgAxNi4xNSAoRGViaWFuIDE2LjE1LTEucGdkZzEzKzIpAFMAAAAZc2VydmVyX2VuY29kaW5nAFVURjgASwAAAAwAAADNCa8v31oAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "UAAAABkAU0VMRUNUIEZST00gV0hFUkUAAABCAAAADAAAAAAAAAAARAAAAAZQAEUAAAAJAAAAAABTAAAABA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 61
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "RQAAAF5TRVJST1IAVkVSUk9SAEM0MjYwMQBNc3ludGF4IGVycm9yIGF0IG9yIG5lYXIgIldIRVJFIgBQMTMARnNjYW4ubABMMTI0NABSc2Nhbm5lcl95eWVycm9yAABaAAAABUk=",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": false,
+        "kind": "postgres",
+        "code": "42601",
+        "message": "syntax error at or near \"WHERE\""
+      },
+      "randoms": [
+        "AQIDBAUGBwgJCgsMDQ4PEBES"
+      ]
+    }
+  ]
+}

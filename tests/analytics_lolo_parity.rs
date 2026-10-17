@@ -28,6 +28,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept"],
     default_timeout_ms: 0,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 fn resolve_base(value: &mut Json) {

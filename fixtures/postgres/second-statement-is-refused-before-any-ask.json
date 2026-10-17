@@ -1,0 +1,24 @@
+{
+  "service": "postgres",
+  "case": "second-statement-is-refused-before-any-ask",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT 1; SELECT 2",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [],
+      "outcome": {
+        "ok": false,
+        "kind": "refused",
+        "code": null,
+        "message": "Read-only violation: Only a single statement is allowed"
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "service": "postgres",
+  "case": "delete-is-refused-before-any-ask",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "DELETE FROM users",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [],
+      "outcome": {
+        "ok": false,
+        "kind": "refused",
+        "code": null,
+        "message": "Read-only violation: Only SELECT statements are allowed"
+      }
+    }
+  ]
+}

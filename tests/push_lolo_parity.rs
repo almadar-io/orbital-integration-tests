@@ -23,6 +23,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "authorization", "ttl", "urgency", "content-encoding", "content-length"],
     default_timeout_ms: 0,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 const VALIDATION_ONLY: [&str; 4] = [

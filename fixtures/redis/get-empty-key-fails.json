@@ -1,0 +1,17 @@
+{
+  "service": "redis",
+  "case": "get-empty-key-fails",
+  "action": "get",
+  "env": {},
+  "params": {
+    "key": ""
+  },
+  "exchanges": [],
+  "osExchanges": [],
+  "outcome": {
+    "ok": false,
+    "kind": "refused",
+    "code": null,
+    "message": "key is required"
+  }
+}

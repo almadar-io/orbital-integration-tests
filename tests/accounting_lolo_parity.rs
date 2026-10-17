@@ -19,6 +19,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &[],
     default_timeout_ms: 0,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 const NOT_EXPRESSIBLE: [&str; 4] = [

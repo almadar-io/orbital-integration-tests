@@ -1,0 +1,53 @@
+{
+  "service": "apikeys",
+  "case": "salt-not-hex",
+  "action": "mint",
+  "env": {
+    "ALMADAR_API_KEY_SALT": "not-hex"
+  },
+  "params": {
+    "extra": []
+  },
+  "randoms": [
+    [
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7
+    ]
+  ],
+  "exchanges": [],
+  "outcome": {
+    "ok": false,
+    "code": null,
+    "message": "The API key salt credential is missing or is not non-empty hex"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "service": "postgres",
+  "case": "connection-refused-fails",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT 1",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "error": {
+              "kind": "io",
+              "message": "os/tcp-connect: Connection refused (os error 61)"
+            }
+          }
+        }
+      ],
+      "outcome": {
+        "ok": false,
+        "kind": "failed",
+        "code": null,
+        "message": "os/tcp-connect: Connection refused (os error 61)"
+      }
+    }
+  ]
+}

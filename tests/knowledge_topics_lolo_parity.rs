@@ -34,6 +34,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["accept", "authorization", "content-type"],
     default_timeout_ms: 0,
     base: Some(("kflow", ORIGIN)),
+    ..ParitySpec::DEFAULT
 };
 
 // The sign-in and the session record stay host actions of the knowledge provider.
@@ -203,6 +204,7 @@ const ICON_SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization"],
     default_timeout_ms: 6000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 const PERSONA_SPEC: ParitySpec = ParitySpec {
@@ -221,6 +223,7 @@ const PERSONA_SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization"],
     default_timeout_ms: 6000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 const MODEL_TIMEOUT_MS: u64 = 300_000;

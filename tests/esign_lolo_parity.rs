@@ -24,6 +24,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization"],
     default_timeout_ms: 30000,
     base: Some(("origin", ORIGIN)),
+    ..ParitySpec::DEFAULT
 };
 
 /// Not UTF-8 (0xff, 0xfe, 0x80, 0xc3 0x28): a recorded text body cannot carry it.

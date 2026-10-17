@@ -22,6 +22,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept"],
     default_timeout_ms: 60000,
     base: Some(("origin", "http://localhost:3000")),
+    ..ParitySpec::DEFAULT
 };
 
 #[test]

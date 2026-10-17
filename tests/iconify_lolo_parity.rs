@@ -29,6 +29,7 @@ const SPEC: ParitySpec = ParitySpec {
     ],
     default_timeout_ms: 6000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 #[test]

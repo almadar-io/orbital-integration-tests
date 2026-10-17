@@ -1,0 +1,309 @@
+{
+  "service": "postgres",
+  "case": "select-many-column-types",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT 1::int2 a, 2::int4 b, 3::int8 c, 1.5::float4 d, 2.25::float8 e, 12345.6789::numeric f, true g, 'h\u00e9llo'::text h, 'x'::varchar(3) i, 'ab'::char(4) j, '{\"a\":[1,2]}'::jsonb k, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid m, '2025-10-09 08:53:20.123456+00'::timestamptz n, '2025-10-09 08:53:20'::timestamp o, '2025-10-09'::date p, '\\x0102'::bytea q, NULL::int4 t, '12:34:56'::time u, 0.1::float4 v, 'NaN'::float8 w, (-12.50)::numeric x, 123456789012345678::int8 y, 9007199254740993::int8 z, '1 day'::interval aa",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "AAAAYQADAAB1c2VyAHBvc3RncmVzAGRhdGFiYXNlAHBvc3RncmVzAGNsaWVudF9lbmNvZGluZwBVVEY4AG9wdGlvbnMALWMgc3RhdGVtZW50X3RpbWVvdXQ9MTAwMDAAAA=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 97
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAABcAAAAKU0NSQU0tU0hBLTI1NgAA",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAD5TQ1JBTS1TSEEtMjU2AAAAAChuLCxuPXBvc3RncmVzLHI9QVFJREJBVUdCd2dKQ2dzTURRNFBFQkVT"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 63
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAFwAAAALcj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNyaXp0eTR2UmEzM0RxWTZFWWhZcmJ5dG0scz1uS0hHa2V4RkVMTS9oUzdMdmlxbFJnPT0saT00MDk2",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAGxjPWJpd3Mscj1BUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNyaXp0eTR2UmEzM0RxWTZFWWhZcmJ5dG0scD1ZUzBxVVU0N1ArWlpYNzlNbWVxVjhlOHlyU1BJaWpxaGIyZ0xROUsxcjRrPQ=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 109
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAADYAAAAMdj1uMmFzL0VockdGV2tKUVJjcDVzYnpWWXpGenptcHBpcVArZ1JOdkZ2VU5FPVIAAAAIAAAAAFMAAAAXaW5faG90X3N0YW5kYnkAb2ZmAFMAAAAZaW50ZWdlcl9kYXRldGltZXMAb24AUwAAABVUaW1lWm9uZQBFdGMvVVRDAFMAAAAbSW50ZXJ2YWxTdHlsZQBwb3N0Z3JlcwBTAAAAFGlzX3N1cGVydXNlcgBvbgBTAAAAFmFwcGxpY2F0aW9uX25hbWUAAFMAAAAmZGVmYXVsdF90cmFuc2FjdGlvbl9yZWFkX29ubHkAb2ZmAFMAAAAac2NyYW1faXRlcmF0aW9ucwA0MDk2AFMAAAAXRGF0ZVN0eWxlAElTTywgTURZAFMAAAAjc3RhbmRhcmRfY29uZm9ybWluZ19zdHJpbmdzAG9uAFMAAAAjc2Vzc2lvbl9hdXRob3JpemF0aW9uAHBvc3RncmVzAFMAAAAZY2xpZW50X2VuY29kaW5nAFVURjgAUwAAADNzZXJ2ZXJfdmVyc2lvbgAxNi4xNSAoRGViaWFuIDE2LjE1LTEucGdkZzEzKzIpAFMAAAAZc2VydmVyX2VuY29kaW5nAFVURjgASwAAAAwAAADFL875JVoAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "UAAAAgoAU0VMRUNUIDE6OmludDIgYSwgMjo6aW50NCBiLCAzOjppbnQ4IGMsIDEuNTo6ZmxvYXQ0IGQsIDIuMjU6OmZsb2F0OCBlLCAxMjM0NS42Nzg5OjpudW1lcmljIGYsIHRydWUgZywgJ2jDqWxsbyc6OnRleHQgaCwgJ3gnOjp2YXJjaGFyKDMpIGksICdhYic6OmNoYXIoNCkgaiwgJ3siYSI6WzEsMl19Jzo6anNvbmIgaywgJ2EwZWViYzk5LTljMGItNGVmOC1iYjZkLTZiYjliZDM4MGExMSc6OnV1aWQgbSwgJzIwMjUtMTAtMDkgMDg6NTM6MjAuMTIzNDU2KzAwJzo6dGltZXN0YW1wdHogbiwgJzIwMjUtMTAtMDkgMDg6NTM6MjAnOjp0aW1lc3RhbXAgbywgJzIwMjUtMTAtMDknOjpkYXRlIHAsICdceDAxMDInOjpieXRlYSBxLCBOVUxMOjppbnQ0IHQsICcxMjozNDo1Nic6OnRpbWUgdSwgMC4xOjpmbG9hdDQgdiwgJ05hTic6OmZsb2F0OCB3LCAoLTEyLjUwKTo6bnVtZXJpYyB4LCAxMjM0NTY3ODkwMTIzNDU2Nzg6OmludDggeSwgOTAwNzE5OTI1NDc0MDk5Mzo6aW50OCB6LCAnMSBkYXknOjppbnRlcnZhbCBhYQAAAEIAAAAMAAAAAAAAAABEAAAABlAARQAAAAkAAAAAAFMAAAAE"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 558
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "MQAAAAQyAAAABFQAAAHnABhhAAAAAAAAAAAAABUAAv////8AAGIAAAAAAAAAAAAAFwAE/////wAAYwAAAAAAAAAAAAAUAAj/////AABkAAAAAAAAAAAAArwABP////8AAGUAAAAAAAAAAAACvQAI/////wAAZgAAAAAAAAAAAAak////////AABnAAAAAAAAAAAAABAAAf////8AAGgAAAAAAAAAAAAAGf///////wAAaQAAAAAAAAAAAAQT//8AAAAHAABqAAAAAAAAAAAABBL//wAAAAgAAGsAAAAAAAAAAAAO2v///////wAAbQAAAAAAAAAAAAuGABD/////AABuAAAAAAAAAAAABKAACP////8AAG8AAAAAAAAAAAAEWgAI/////wAAcAAAAAAAAAAAAAQ6AAT/////AABxAAAAAAAAAAAAABH///////8AAHQAAAAAAAAAAAAAFwAE/////wAAdQAAAAAAAAAAAAQ7AAj/////AAB2AAAAAAAAAAAAArwABP////8AAHcAAAAAAAAAAAACvQAI/////wAAeAAAAAAAAAAAAAak////////AAB5AAAAAAAAAAAAABQACP////8AAHoAAAAAAAAAAAAAFAAI/////wAAYWEAAAAAAAAAAAAEogAQ/////wAARAAAATIAGAAAAAExAAAAATIAAAABMwAAAAMxLjUAAAAEMi4yNQAAAAoxMjM0NS42Nzg5AAAAAXQAAAAGaMOpbGxvAAAAAXgAAAAEYWIgIAAAAA17ImEiOiBbMSwgMl19AAAAJGEwZWViYzk5LTljMGItNGVmOC1iYjZkLTZiYjliZDM4MGExMQAAAB0yMDI1LTEwLTA5IDA4OjUzOjIwLjEyMzQ1NiswMAAAABMyMDI1LTEwLTA5IDA4OjUzOjIwAAAACjIwMjUtMTAtMDkAAAAGXHgwMTAy/////wAAAAgxMjozNDo1NgAAAAMwLjEAAAADTmFOAAAABi0xMi41MAAAABIxMjM0NTY3ODkwMTIzNDU2NzgAAAAQOTAwNzE5OTI1NDc0MDk5MwAAAAUxIGRheUMAAAANU0VMRUNUIDEAWgAAAAVJ",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "WAAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 5
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "rows": [
+            {
+              "a": 1,
+              "b": 2,
+              "c": 3,
+              "d": 1.5,
+              "e": 2.25,
+              "f": "12345.6789",
+              "g": true,
+              "h": "h\u00e9llo",
+              "i": "x",
+              "j": "ab  ",
+              "k": "{\"a\": [1, 2]}",
+              "m": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+              "n": "2025-10-09T08:53:20.123456Z",
+              "o": "2025-10-09T08:53:20",
+              "p": "2025-10-09",
+              "q": "AQI=",
+              "t": null,
+              "u": "12:34:56",
+              "v": 0.1,
+              "w": null,
+              "x": "-12.50",
+              "y": "123456789012345678",
+              "z": "9007199254740993",
+              "aa": "1 day"
+            }
+          ],
+          "rowCount": 1,
+          "columns": [
+            {
+              "name": "a",
+              "typeOid": 21
+            },
+            {
+              "name": "b",
+              "typeOid": 23
+            },
+            {
+              "name": "c",
+              "typeOid": 20
+            },
+            {
+              "name": "d",
+              "typeOid": 700
+            },
+            {
+              "name": "e",
+              "typeOid": 701
+            },
+            {
+              "name": "f",
+              "typeOid": 1700
+            },
+            {
+              "name": "g",
+              "typeOid": 16
+            },
+            {
+              "name": "h",
+              "typeOid": 25
+            },
+            {
+              "name": "i",
+              "typeOid": 1043
+            },
+            {
+              "name": "j",
+              "typeOid": 1042
+            },
+            {
+              "name": "k",
+              "typeOid": 3802
+            },
+            {
+              "name": "m",
+              "typeOid": 2950
+            },
+            {
+              "name": "n",
+              "typeOid": 1184
+            },
+            {
+              "name": "o",
+              "typeOid": 1114
+            },
+            {
+              "name": "p",
+              "typeOid": 1082
+            },
+            {
+              "name": "q",
+              "typeOid": 17
+            },
+            {
+              "name": "t",
+              "typeOid": 23
+            },
+            {
+              "name": "u",
+              "typeOid": 1083
+            },
+            {
+              "name": "v",
+              "typeOid": 700
+            },
+            {
+              "name": "w",
+              "typeOid": 701
+            },
+            {
+              "name": "x",
+              "typeOid": 1700
+            },
+            {
+              "name": "y",
+              "typeOid": 20
+            },
+            {
+              "name": "z",
+              "typeOid": 20
+            },
+            {
+              "name": "aa",
+              "typeOid": 1186
+            }
+          ]
+        }
+      },
+      "randoms": [
+        "AQIDBAUGBwgJCgsMDQ4PEBES"
+      ]
+    }
+  ]
+}

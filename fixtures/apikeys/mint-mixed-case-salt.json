@@ -1,0 +1,60 @@
+{
+  "service": "apikeys",
+  "case": "mint-mixed-case-salt",
+  "action": "mint",
+  "env": {
+    "ALMADAR_API_KEY_SALT": "AbCdEf0123456789"
+  },
+  "params": {
+    "extra": []
+  },
+  "randoms": [
+    [
+      0,
+      7,
+      14,
+      21,
+      28,
+      35,
+      42,
+      49,
+      56,
+      63,
+      70,
+      77,
+      84,
+      91,
+      98,
+      105,
+      112,
+      119,
+      126,
+      133,
+      140,
+      147,
+      154,
+      161,
+      168,
+      175,
+      182,
+      189,
+      196,
+      203,
+      210,
+      217
+    ]
+  ],
+  "exchanges": [],
+  "outcome": {
+    "ok": true,
+    "data": {
+      "plaintext": "sk_live_b1d9588a163889fc21a25d32a2b1488a97915fb8fd07431648751ad05b43a682",
+      "keyHash": "26ae804ac056cf81165ae8766d5cebab952bca152370745c34440493ba737956",
+      "lastFour": "a682"
+    }
+  },
+  "row": {
+    "id": "26ae804ac056cf81165ae8766d5cebab952bca152370745c34440493ba737956",
+    "lastFour": "a682"
+  }
+}

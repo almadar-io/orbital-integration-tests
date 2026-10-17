@@ -53,6 +53,7 @@ mod session_regressions {
         compared_headers: &["authorization", "content-type"],
         default_timeout_ms: 1000,
         base: None,
+        ..ParitySpec::DEFAULT
     };
 
     fn schema(request: Json) -> OrbitalSchema {
@@ -691,6 +692,7 @@ const LEGACY_SPEC: lolo_parity::ParitySpec = lolo_parity::ParitySpec {
     compared_headers: &[],
     default_timeout_ms: 1000,
     base: None,
+    ..lolo_parity::ParitySpec::DEFAULT
 };
 
 fn legacy_fixture(body: &str) -> serde_json::Value {
@@ -996,6 +998,7 @@ const STEPS_SPEC: lolo_parity::ParitySpec = lolo_parity::ParitySpec {
     compared_headers: &[],
     default_timeout_ms: 1000,
     base: None,
+    ..lolo_parity::ParitySpec::DEFAULT
 };
 
 fn steps_scenario(steps: Vec<serde_json::Value>) -> serde_json::Value {
@@ -1088,4 +1091,126 @@ fn steps_advance_ms_moves_the_clock_on_from_the_previous_step() {
     let mut still_live = steps_scenario(vec![credential_step("status", true), credential_step("status", true)]);
     still_live["steps"][1]["advanceMs"] = json!(0);
     alice_session(&still_live, Some(200)).check_steps(&still_live);
+}
+
+fn os_ask(op: orbital_core::runtime::os::OsOp, args: Vec<orbital_core::Value>) -> IoRequest {
+    IoRequest::Os { op, args, key: None, site: None }
+}
+
+fn os_fixture(os_exchanges: serde_json::Value) -> serde_json::Value {
+    let mut fixture = legacy_fixture("");
+    fixture["exchanges"] = json!([]);
+    fixture["osExchanges"] = os_exchanges;
+    fixture
+}
+
+fn os_send_exchange(data: &str, answer: serde_json::Value) -> serde_json::Value {
+    json!({ "os": { "op": "os/write", "args": ["conn-1", data] }, "answer": answer })
+}
+
+#[test]
+fn os_asks_replay_in_order_with_the_recorded_answers() {
+    use orbital_core::runtime::os::OsOp;
+    use orbital_core::Value;
+    let fixture = os_fixture(json!([
+        os_send_exchange("PING", json!({ "ok": 4 })),
+        { "os": { "op": "os/read", "args": ["conn-1", 16] }, "answer": { "ok": "+PONG\r\n" } },
+        os_send_exchange("QUIT", json!({ "error": { "kind": "closed", "message": "gone" } })),
+    ]));
+    let answers = lolo_parity::probe_fixture_host(
+        &LEGACY_SPEC,
+        &fixture,
+        &[
+            os_ask(OsOp::Write, vec![Value::String("conn-1".into()), Value::String("PING".into())]),
+            os_ask(OsOp::Read, vec![Value::String("conn-1".into()), Value::Number(16.0)]),
+            os_ask(OsOp::Write, vec![Value::String("conn-1".into()), Value::String("QUIT".into())]),
+        ],
+    );
+    assert!(matches!(&answers[0], IoAnswer::Os(Ok(Value::Number(n))) if *n == 4.0));
+    assert!(matches!(&answers[1], IoAnswer::Os(Ok(Value::String(s))) if s == "+PONG\r\n"));
+    match &answers[2] {
+        IoAnswer::Os(Err(e)) => {
+            assert_eq!(e.kind, orbital_core::runtime::os::OsErrorKind::Closed);
+            assert_eq!(e.message, "gone");
+        }
+        other => panic!("expected the recorded os error, got {other:?}"),
+    }
+}
+
+#[test]
+fn os_args_match_recorded_tokens() {
+    use orbital_core::runtime::os::OsOp;
+    use orbital_core::Value;
+    let fixture = os_fixture(json!([os_send_exchange("id-<hex8>", json!({ "ok": null }))]));
+    let answers = lolo_parity::probe_fixture_host(
+        &LEGACY_SPEC,
+        &fixture,
+        &[os_ask(OsOp::Write, vec![Value::String("conn-1".into()), Value::String("id-0a1b2c3d".into())])],
+    );
+    assert!(matches!(&answers[0], IoAnswer::Os(Ok(Value::Null))));
+}
+
+#[test]
+#[should_panic(expected = "args")]
+fn os_asks_with_drifted_args_fail_the_replay() {
+    use orbital_core::runtime::os::OsOp;
+    use orbital_core::Value;
+    let fixture = os_fixture(json!([os_send_exchange("PING", json!({ "ok": 4 }))]));
+    lolo_parity::probe_fixture_host(
+        &LEGACY_SPEC,
+        &fixture,
+        &[os_ask(OsOp::Write, vec![Value::String("conn-1".into()), Value::String("PONG".into())])],
+    );
+}
+
+#[test]
+#[should_panic(expected = "os op")]
+fn os_asks_out_of_order_fail_the_replay() {
+    use orbital_core::runtime::os::OsOp;
+    use orbital_core::Value;
+    let fixture = os_fixture(json!([os_send_exchange("PING", json!({ "ok": 4 }))]));
+    lolo_parity::probe_fixture_host(
+        &LEGACY_SPEC,
+        &fixture,
+        &[os_ask(OsOp::Read, vec![Value::String("conn-1".into()), Value::Number(16.0)])],
+    );
+}
+
+#[test]
+#[should_panic(expected = "unrecorded os ask")]
+fn an_unrecorded_os_ask_fails_the_replay() {
+    use orbital_core::runtime::os::OsOp;
+    use orbital_core::Value;
+    lolo_parity::probe_fixture_host(
+        &LEGACY_SPEC,
+        &os_fixture(json!([])),
+        &[os_ask(OsOp::Close, vec![Value::String("conn-1".into())])],
+    );
+}
+
+const KNOB_SPEC: lolo_parity::ParitySpec = lolo_parity::ParitySpec {
+    atom: "almadar-std/behaviors/lolo/infra/atoms/std-webhook.lolo",
+    trait_name: "WebhookClient",
+    fixtures_dir: "webhook",
+    env_knobs: &[("WEBHOOK_TIMEOUT_MS", "timeoutMs")],
+    default_timeout_ms: 10_000,
+    ..lolo_parity::ParitySpec::DEFAULT
+};
+
+#[test]
+fn an_unreadable_numeric_knob_is_a_typed_error_the_spec_can_expect() {
+    let fixture = json!({ "case": "unreadable", "env": { "WEBHOOK_TIMEOUT_MS": "soon" } });
+    assert_eq!(
+        lolo_parity::patched_json(&KNOB_SPEC, &fixture).err(),
+        Some(lolo_parity::KnobError::Unreadable {
+            case: "unreadable".into(),
+            variable: "WEBHOOK_TIMEOUT_MS".into(),
+            knob: "timeoutMs".into(),
+            raw: "soon".into(),
+        })
+    );
+    let keeps_default = lolo_parity::ParitySpec { unreadable_knob: lolo_parity::UnreadableKnob::UseDefault, ..KNOB_SPEC };
+    assert!(lolo_parity::patched_json(&keeps_default, &fixture).is_ok());
+    let readable = json!({ "case": "readable", "env": { "WEBHOOK_TIMEOUT_MS": "250" } });
+    assert!(lolo_parity::patched_json(&KNOB_SPEC, &readable).is_ok());
 }

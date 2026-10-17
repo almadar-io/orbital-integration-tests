@@ -1,0 +1,34 @@
+{
+  "service": "redis",
+  "case": "get-connection-refused-fails",
+  "action": "get",
+  "env": {},
+  "params": {
+    "key": "k"
+  },
+  "exchanges": [],
+  "osExchanges": [
+    {
+      "os": {
+        "op": "os/tcp-connect",
+        "args": [
+          "redis.example.test",
+          6379
+        ]
+      },
+      "answer": {
+        "error": {
+          "kind": "io",
+          "message": "os/tcp-connect: Connection refused (os error 61)"
+        }
+      }
+    }
+  ],
+  "outcome": {
+    "ok": false,
+    "kind": "failed",
+    "code": null,
+    "message": "os/tcp-connect: Connection refused (os error 61)"
+  },
+  "synthetic": "the host's connect error is written by hand"
+}

@@ -1,0 +1,24 @@
+{
+  "service": "postgres",
+  "case": "select-into-is-refused-before-any-ask",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT * INTO copy FROM users",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [],
+      "outcome": {
+        "ok": false,
+        "kind": "refused",
+        "code": null,
+        "message": "Read-only violation: Keyword not allowed in a read-only query: INTO"
+      }
+    }
+  ]
+}

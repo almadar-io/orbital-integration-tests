@@ -1,0 +1,40 @@
+{
+  "service": "postgres",
+  "case": "connect-not-granted-fails",
+  "env": {
+    "PG_PASSWORD": "test-pg-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT 1",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "error": {
+              "kind": "denied",
+              "message": "os/tcp-connect: postgres.example.test:5432 is not granted"
+            }
+          }
+        }
+      ],
+      "outcome": {
+        "ok": false,
+        "kind": "refused",
+        "code": null,
+        "message": "os/tcp-connect: postgres.example.test:5432 is not granted"
+      }
+    }
+  ]
+}

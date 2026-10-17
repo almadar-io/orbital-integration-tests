@@ -45,6 +45,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization", "x-api-key", "anthropic-version", "anthropic-beta", "openai-organization", "user-agent"],
     default_timeout_ms: 300_000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 // D-A80: the registry param checks (nothing sent). `openai-classify-many-no-categories` is replayed too, as a failure the atom answers itself.

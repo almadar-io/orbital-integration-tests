@@ -1,0 +1,72 @@
+{
+  "service": "redis",
+  "case": "delete-existing",
+  "action": "delete",
+  "env": {},
+  "params": {
+    "key": "k"
+  },
+  "exchanges": [],
+  "osExchanges": [
+    {
+      "os": {
+        "op": "os/tcp-connect",
+        "args": [
+          "redis.example.test",
+          6379
+        ]
+      },
+      "answer": {
+        "ok": {
+          "sock": 3
+        }
+      }
+    },
+    {
+      "os": {
+        "op": "os/send",
+        "args": [
+          3,
+          "KjINCiQzDQpERUwNCiQxDQprDQo="
+        ]
+      },
+      "answer": {
+        "ok": {
+          "bytes": 20
+        }
+      }
+    },
+    {
+      "os": {
+        "op": "os/recv",
+        "args": [
+          3,
+          16384
+        ]
+      },
+      "answer": {
+        "ok": {
+          "data": "OjENCg==",
+          "eof": false
+        }
+      }
+    },
+    {
+      "os": {
+        "op": "os/close",
+        "args": [
+          3
+        ]
+      },
+      "answer": {
+        "ok": {}
+      }
+    }
+  ],
+  "outcome": {
+    "ok": true,
+    "data": {
+      "deleted": true
+    }
+  }
+}

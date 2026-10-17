@@ -28,6 +28,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization", "stripe-version", "idempotency-key"],
     default_timeout_ms: 80_000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 // D-A80: contract-validation errors that send nothing.

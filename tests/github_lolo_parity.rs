@@ -25,6 +25,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization"],
     default_timeout_ms: 30000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 const GIT_ACTIONS: [&str; 4] = ["cloneRepo", "createBranch", "commit", "push"];

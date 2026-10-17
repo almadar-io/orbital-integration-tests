@@ -1,0 +1,162 @@
+{
+  "service": "postgres",
+  "case": "md5-login",
+  "env": {
+    "PG_PASSWORD": "test-md5-password"
+  },
+  "steps": [
+    {
+      "action": "query",
+      "params": {
+        "sql": "SELECT id FROM users WHERE id = 1",
+        "params": []
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "postgres.example.test",
+              5432
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "AAAAYAADAAB1c2VyAG1kNXVzZXIAZGF0YWJhc2UAcG9zdGdyZXMAY2xpZW50X2VuY29kaW5nAFVURjgAb3B0aW9ucwAtYyBzdGF0ZW1lbnRfdGltZW91dD0xMDAwMAAA"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 96
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAAwAAAAFr8AzHQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "cAAAAChtZDU2MjU0MmNhZDc1ZDQ3M2E1YmIyYTkxNjA3ZmZhM2I3NQA="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 41
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "UgAAAAgAAAAAUwAAABdpbl9ob3Rfc3RhbmRieQBvZmYAUwAAABlpbnRlZ2VyX2RhdGV0aW1lcwBvbgBTAAAAFVRpbWVab25lAEV0Yy9VVEMAUwAAABtJbnRlcnZhbFN0eWxlAHBvc3RncmVzAFMAAAAVaXNfc3VwZXJ1c2VyAG9mZgBTAAAAFmFwcGxpY2F0aW9uX25hbWUAAFMAAAAmZGVmYXVsdF90cmFuc2FjdGlvbl9yZWFkX29ubHkAb2ZmAFMAAAAac2NyYW1faXRlcmF0aW9ucwA0MDk2AFMAAAAXRGF0ZVN0eWxlAElTTywgTURZAFMAAAAjc3RhbmRhcmRfY29uZm9ybWluZ19zdHJpbmdzAG9uAFMAAAAic2Vzc2lvbl9hdXRob3JpemF0aW9uAG1kNXVzZXIAUwAAABljbGllbnRfZW5jb2RpbmcAVVRGOABTAAAAM3NlcnZlcl92ZXJzaW9uADE2LjE1IChEZWJpYW4gMTYuMTUtMS5wZ2RnMTMrMikAUwAAABlzZXJ2ZXJfZW5jb2RpbmcAVVRGOABLAAAADAAAANHXpUBJWgAAAAVJ",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "UAAAACkAU0VMRUNUIGlkIEZST00gdXNlcnMgV0hFUkUgaWQgPSAxAAAAQgAAAAwAAAAAAAAAAEQAAAAGUABFAAAACQAAAAAAUwAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 77
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "MQAAAAQyAAAABFQAAAAbAAFpZAAAAEAEAAEAAAAXAAT/////AABEAAAACwABAAAAATFDAAAADVNFTEVDVCAxAFoAAAAFSQ==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "WAAAAAQ="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 5
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "rows": [
+            {
+              "id": 1
+            }
+          ],
+          "rowCount": 1,
+          "columns": [
+            {
+              "name": "id",
+              "typeOid": 23
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

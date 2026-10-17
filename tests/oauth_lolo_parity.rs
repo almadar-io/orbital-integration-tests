@@ -34,6 +34,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization"],
     default_timeout_ms: 30_000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 const KNOBS: [(&str, &str); 3] = [("OAUTH_MODE", "mode"), ("OAUTH_REDIRECT_URI", "redirectUri"), ("OIDC_ISSUER_URL", "issuerUrl")];

@@ -34,6 +34,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "authorization"],
     default_timeout_ms: 300_000,
     base: None,
+    ..ParitySpec::DEFAULT
 };
 
 const KNOBS: [(&str, &str); 4] = [

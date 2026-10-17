@@ -1,6 +1,19 @@
 #![allow(dead_code)]
 // H.6 parity harness: replays every recorded fixture of a service through the kernel against its std `.lolo`
 // atom and compares the request the atom makes and the event it emits with the recorded exchange and outcome.
+//
+// The atom is lowered (L1), its knobs are patched from the fixture, and the result is resolved through the compiler,
+// so an atom that `uses` another (std-webhook composes std-retry) replays as the composed program.
+//
+// Fixture shape: `{ case, action, env, params, exchanges, osExchanges?, outcome, now? }`.
+// - `exchanges`: `{ request: { method, url, headers, body }, response: { status, headers?, body } }`, matched in order.
+// - `osExchanges`: the `os/*` asks the atom makes, matched in order among themselves:
+//   `{ "os": { "op": "os/tcp-send", "args": [..] }, "answer": { "ok": <value> } }` or
+//   `{ "os": {..}, "answer": { "error": { "kind": "io", "message": ".." } } }`. `args` are the op's positional arguments
+//   and compare like recorded text (tokens such as `<hex8>` match a generated value); an unrecorded, extra or out-of-order
+//   ask fails the replay.
+// - `outcome`: `{ ok, data }` or `{ ok: false, code, message }`; a spec's `failure_extras` adds fields the failure event
+//   carries beyond `code` and `message`.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
@@ -12,6 +25,7 @@ use orbital_core::ir::PageFactField;
 use orbital_core::oauth::ask::{OAuthAsk, OAuthReply};
 use orbital_core::oauth::store::MemoryOAuthStore;
 use orbital_core::runtime::http_request::{BeaconOutcome, CredentialSlot, SecretScope};
+use orbital_core::runtime::os::{OsError, OsErrorKind, OsOp};
 use orbital_core::runtime::http_service::{
     credential_status_connected, HttpRequest, HttpResponse, SecretSource, TransportError,
 };
@@ -51,12 +65,96 @@ pub struct ParitySpec {
     pub default_timeout_ms: u64,
     /// `(knob, origin)`: the knob is set to the test origin and `{base}` in a fixture is replaced by it.
     pub base: Option<(&'static str, &'static str)>,
+    /// `{base}` in a fixture is replaced by this origin without patching a knob (the atom declares it in egress).
+    pub fixture_origin: Option<&'static str>,
+    /// `(ENV_VAR, knob)`: the knob is `true` when the fixture env value is present and not empty, else `false`.
+    pub presence_knobs: &'static [(&'static str, &'static str)],
+    /// `(case, knob, value)`: the knob is set for that fixture case only.
+    pub case_knobs: &'static [(&'static str, &'static str, KnobValue)],
+    /// What a recorded `env_knobs` value that does not read as the knob's type does.
+    pub unreadable_knob: UnreadableKnob,
+    /// Fields the failure event carries beyond `code` and `message`, and the value each takes for a fixture.
+    pub failure_extras: fn(&Json) -> Vec<(&'static str, Json)>,
+}
+
+pub fn no_failure_extras(_: &Json) -> Vec<(&'static str, Json)> {
+    Vec::new()
+}
+
+impl ParitySpec {
+    pub const DEFAULT: ParitySpec = ParitySpec {
+        atom: "",
+        trait_name: "",
+        fixtures_dir: "",
+        events: &[],
+        env_knobs: &[],
+        secret_env: &[],
+        compared_headers: &[],
+        default_timeout_ms: 0,
+        base: None,
+        fixture_origin: None,
+        presence_knobs: &[],
+        case_knobs: &[],
+        unreadable_knob: UnreadableKnob::Fail,
+        failure_extras: no_failure_extras,
+    };
+}
+
+#[derive(Clone, Copy)]
+pub enum KnobValue {
+    Number(u64),
+    Bool(bool),
+    Text(&'static str),
+}
+
+impl KnobValue {
+    fn json(self) -> Json {
+        match self {
+            Self::Number(n) => json!(n),
+            Self::Bool(b) => json!(b),
+            Self::Text(t) => json!(t),
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum UnreadableKnob {
+    /// The recorded value must read as the knob's type; otherwise the replay fails with [`KnobError::Unreadable`].
+    Fail,
+    /// The fixture records that an unreadable value leaves the atom's own default in force.
+    UseDefault,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum KnobError {
+    Unreadable { case: String, variable: String, knob: String, raw: String },
+    Undeclared { case: String, knob: String },
+}
+
+impl std::fmt::Display for KnobError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unreadable { case, variable, knob, raw } => {
+                write!(f, "{case}: {variable}={raw:?} is not a number for knob {knob}")
+            }
+            Self::Undeclared { case, knob } => write!(f, "{case}: the atom declares no config knob {knob}"),
+        }
+    }
+}
+
+/// One `os/*` ask the atom made.
+#[derive(Debug, Clone)]
+pub struct OsCall {
+    pub op: OsOp,
+    pub args: Vec<Json>,
 }
 
 pub struct Run {
     pub results: Vec<Json>,
     pub failures: Vec<Json>,
     pub sent: Vec<HttpRequest>,
+    pub os_sent: Vec<OsCall>,
+    pub unused_os: usize,
     pub unused: usize,
     pub unused_entropy: usize,
     /// The virtual time (ms) each request was sent at: the clock when it was asked plus its `delayMs`, in order.
@@ -342,7 +440,7 @@ fn all_fixture_files(spec: &ParitySpec) -> Vec<Json> {
         .iter()
         .map(|path| {
             let mut text = std::fs::read_to_string(path).expect("read fixture");
-            if let Some((_, origin)) = spec.base {
+            if let Some(origin) = spec.base.map(|(_, origin)| origin).or(spec.fixture_origin) {
                 text = text.replace("{base}", origin);
             }
             serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
@@ -369,6 +467,8 @@ struct Replay<'a> {
     case: String,
     script: Mutex<VecDeque<(Json, ExchangeContract)>>,
     sent: Mutex<Vec<HttpRequest>>,
+    os_script: Mutex<VecDeque<Json>>,
+    os_sent: Mutex<Vec<OsCall>>,
     /// See [`Run::send_times`].
     send_times: Mutex<Vec<u64>>,
     entropy: Mutex<VecDeque<Vec<u8>>>,
@@ -406,6 +506,14 @@ impl<'a> Replay<'a> {
             case: text(fixture, "case").to_string(),
             script: Mutex::new(recorded.iter().cloned().zip(contracts).collect()),
             sent: Mutex::new(Vec::new()),
+            os_script: Mutex::new(
+                fixture
+                    .get("osExchanges")
+                    .filter(|exchanges| !exchanges.is_null())
+                    .map(|exchanges| exchanges.as_array().expect("osExchanges is an array").iter().cloned().collect())
+                    .unwrap_or_default(),
+            ),
+            os_sent: Mutex::new(Vec::new()),
             send_times: Mutex::new(Vec::new()),
             entropy: Mutex::new(step.entropy.iter().cloned().collect()),
             host,
@@ -422,6 +530,46 @@ impl<'a> Replay<'a> {
 
     fn unused(&self) -> usize {
         self.script.lock().expect("script").len()
+    }
+
+    fn unused_os(&self) -> usize {
+        self.os_script.lock().expect("os script").len()
+    }
+
+    fn answer_os(&self, op: OsOp, args: &[Value]) -> Result<Value, OsError> {
+        let case = &self.case;
+        let actual: Vec<Json> = args
+            .iter()
+            .map(|arg| by_value(serde_json::to_value(arg).expect("os arg json")))
+            .collect();
+        self.os_sent.lock().expect("os sent").push(OsCall { op, args: actual.clone() });
+        let exchange = self
+            .os_script
+            .lock()
+            .expect("os script")
+            .pop_front()
+            .unwrap_or_else(|| panic!("{case}: the atom made an unrecorded os ask: {} {actual:?}", op.name()));
+        let recorded = &exchange["os"];
+        assert_eq!(op.name(), text(recorded, "op"), "{case}: os op");
+        let expected = recorded["args"].as_array().unwrap_or_else(|| panic!("{case}: os args must be an array"));
+        assert!(
+            json_matches(&Json::Array(expected.clone()), &Json::Array(actual.clone())),
+            "{case}: {} args: expected {expected:?} got {actual:?}",
+            op.name()
+        );
+        let answer = &exchange["answer"];
+        match (answer.get("ok"), answer.get("error")) {
+            (Some(value), None) => Ok(serde_json::from_value(value.clone())
+                .unwrap_or_else(|e| panic!("{case}: os answer is not a value: {e}"))),
+            (None, Some(error)) => {
+                let kind = text(error, "kind");
+                Err(OsError::new(
+                    OsErrorKind::from_name(kind).unwrap_or_else(|| panic!("{case}: unknown os error kind {kind}")),
+                    text(error, "message"),
+                ))
+            }
+            _ => panic!("{case}: an os answer has `ok` or `error`, not both or neither: {answer}"),
+        }
     }
 
     fn semantic(
@@ -550,6 +698,7 @@ impl<'a> Replay<'a> {
                 drop(times);
                 IoAnswer::Http(self.answer(request))
             }
+            IoRequest::Os { op, args, .. } => IoAnswer::Os(self.answer_os(*op, args)),
             IoRequest::Secret { name, principal } => {
                 IoAnswer::Secret(self.host.secret_of(name, principal.as_deref()))
             }
@@ -647,13 +796,40 @@ fn expected_timeout(spec: &ParitySpec, fixture: &Json) -> Duration {
         .iter()
         .find(|(_, knob)| *knob == "timeoutMs")
         .and_then(|(variable, _)| fixture["env"][*variable].as_str())
-        .map_or(spec.default_timeout_ms, |t| {
-            t.parse().expect("timeout env is a number")
-        });
+        .and_then(|raw| match (raw.parse::<u64>(), spec.unreadable_knob) {
+            (Ok(ms), _) => Some(ms),
+            (Err(_), UnreadableKnob::UseDefault) => None,
+            (Err(_), UnreadableKnob::Fail) => panic!("{}: timeout env {raw:?} is not a number", text(fixture, "case")),
+        })
+        .unwrap_or(spec.default_timeout_ms);
     Duration::from_millis(ms)
 }
 
-fn lowered(spec: &ParitySpec, fixture: &Json) -> OrbitalSchema {
+fn set_knob(json: &mut Json, knob: &str, value: &Json) -> bool {
+    let mut patched = false;
+    for orbital in json["orbitals"].as_array_mut().expect("orbitals") {
+        for t in orbital["traits"].as_array_mut().into_iter().flatten() {
+            if let Some(entry) = t["config"].get_mut(knob) {
+                entry["default"] = value.clone();
+                patched = true;
+            }
+        }
+    }
+    patched
+}
+
+fn require_knob(json: &mut Json, case: &str, knob: &str, value: &Json) -> Result<(), KnobError> {
+    if set_knob(json, knob, value) {
+        Ok(())
+    } else {
+        Err(KnobError::Undeclared { case: case.to_string(), knob: knob.to_string() })
+    }
+}
+
+/// The lowered atom with the fixture's knobs patched in. Knobs are patched before resolve because resolve folds a
+/// knob's default into the effects.
+pub fn patched_json(spec: &ParitySpec, fixture: &Json) -> Result<Json, KnobError> {
+    let case = text(fixture, "case");
     let path = atom_path(spec);
     let schema = orbital_test_support::lower_lolo_file(&path)
         .unwrap_or_else(|e| panic!("lower {}: {e}", path.display()));
@@ -663,42 +839,47 @@ fn lowered(spec: &ParitySpec, fixture: &Json) -> OrbitalSchema {
             continue;
         };
         let value = if *knob == "timeoutMs" {
-            json!(raw.parse::<u64>().expect("number"))
+            match (raw.parse::<u64>(), spec.unreadable_knob) {
+                (Ok(ms), _) => json!(ms),
+                (Err(_), UnreadableKnob::UseDefault) => continue,
+                (Err(_), UnreadableKnob::Fail) => {
+                    return Err(KnobError::Unreadable {
+                        case: case.to_string(),
+                        variable: (*variable).to_string(),
+                        knob: (*knob).to_string(),
+                        raw: raw.to_string(),
+                    })
+                }
+            }
         } else {
             json!(raw)
         };
-        let mut patched = false;
-        for orbital in json["orbitals"].as_array_mut().expect("orbitals") {
-            for t in orbital["traits"].as_array_mut().into_iter().flatten() {
-                if let Some(entry) = t["config"].get_mut(*knob) {
-                    entry["default"] = value.clone();
-                    patched = true;
-                }
-            }
+        require_knob(&mut json, case, knob, &value)?;
+    }
+    for (variable, knob) in spec.presence_knobs {
+        let present = fixture["env"][*variable].as_str().is_some_and(|value| !value.is_empty());
+        require_knob(&mut json, case, knob, &json!(present))?;
+    }
+    for (name, knob, value) in spec.case_knobs {
+        if *name == case {
+            require_knob(&mut json, case, knob, &value.json())?;
         }
-        assert!(
-            patched,
-            "{}: the atom declares no config knob {knob}",
-            text(fixture, "case")
-        );
     }
     if let Some((knob, origin)) = spec.base {
-        let mut patched = false;
-        for orbital in json["orbitals"].as_array_mut().expect("orbitals") {
-            for t in orbital["traits"].as_array_mut().into_iter().flatten() {
-                if let Some(entry) = t["config"].get_mut(knob) {
-                    entry["default"] = json!(origin);
-                    patched = true;
-                }
-            }
-        }
-        assert!(
-            patched,
-            "{}: the atom declares no base knob {knob}",
-            text(fixture, "case")
-        );
+        require_knob(&mut json, case, knob, &json!(origin))?;
     }
-    serde_json::from_value(json).expect("schema back from json")
+    Ok(json)
+}
+
+fn lowered(spec: &ParitySpec, fixture: &Json) -> OrbitalSchema {
+    let json = patched_json(spec, fixture).unwrap_or_else(|e| panic!("{e}"));
+    let schema: OrbitalSchema = serde_json::from_value(json).expect("schema back from json");
+    orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+    let path = atom_path(spec);
+    let options = orbital_compiler::CompilerOptions::from_env();
+    let (schema, _) = orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path))
+        .unwrap_or_else(|e| panic!("resolve {}: {e}", path.display()));
+    schema
 }
 
 fn fixture_now(fixture: &Json) -> Option<f64> {
@@ -803,6 +984,7 @@ impl<'a> ParitySession<'a> {
                 "action": step["action"],
                 "params": resolve(&step["params"]),
                 "exchanges": resolve(&step["exchanges"]),
+                "osExchanges": resolve(&step["osExchanges"]),
                 "outcome": resolve(&step["outcome"]),
             });
             let entropy = step
@@ -838,8 +1020,18 @@ impl<'a> ParitySession<'a> {
 
     fn check_without_deadlines(&mut self, fixture: &Json, step: ReplayStep) -> Run {
         let run = self.run_inner(fixture, step, false);
-        assert_run(fixture, &run);
+        assert_run(self.spec, fixture, &run);
         run
+    }
+
+    /// The rows the session's store holds for `entity_type`, as JSON, for assertions on what an atom persisted.
+    pub fn rows(&self, entity_type: &str) -> Vec<Json> {
+        self.store
+            .list(entity_type)
+            .unwrap_or_else(|e| panic!("list {entity_type}: {e}"))
+            .iter()
+            .map(|row| by_value(serde_json::to_value(row.as_ref()).expect("row json")))
+            .collect()
     }
 
     /// The credential value the host holds now (after any rotation), for assertions on a rotated token.
@@ -854,7 +1046,7 @@ impl<'a> ParitySession<'a> {
 
     pub fn check(&mut self, fixture: &Json, step: ReplayStep) -> Run {
         let run = self.run_inner(fixture, step, true);
-        assert_run(fixture, &run);
+        assert_run(self.spec, fixture, &run);
         run
     }
 
@@ -906,12 +1098,15 @@ impl<'a> ParitySession<'a> {
             }
         }
         let sent = replay.sent.lock().expect("sent").clone();
+        let os_sent = replay.os_sent.lock().expect("os sent").clone();
         let send_times = replay.send_times.lock().expect("send times").clone();
         let unused_entropy = replay.entropy.lock().expect("entropy").len();
         Run {
             results,
             failures,
             sent,
+            os_sent,
+            unused_os: replay.unused_os(),
             unused: replay.unused(),
             unused_entropy,
             send_times,
@@ -1073,7 +1268,7 @@ pub fn check(spec: &ParitySpec, fixture: &Json) {
         .check(fixture, ReplayStep::default());
 }
 
-fn assert_run(fixture: &Json, run: &Run) {
+fn assert_run(spec: &ParitySpec, fixture: &Json, run: &Run) {
     let case = text(fixture, "case");
     assert_eq!(
         run.unused, 0,
@@ -1084,6 +1279,7 @@ fn assert_run(fixture: &Json, run: &Run) {
         fixture["exchanges"].as_array().expect("exchanges").len(),
         "{case}: request count"
     );
+    assert_eq!(run.unused_os, 0, "{case}: recorded os asks the atom never made");
     assert_eq!(run.unused_entropy, 0, "{case}: unused entropy");
     if is_ok(fixture) {
         assert!(
@@ -1099,7 +1295,10 @@ fn assert_run(fixture: &Json, run: &Run) {
         );
     } else {
         let outcome = &fixture["outcome"];
-        let expected = json!({"code": outcome["code"], "message": outcome["message"]});
+        let mut expected = json!({"code": outcome["code"], "message": outcome["message"]});
+        for (field, value) in (spec.failure_extras)(fixture) {
+            expected[field] = value;
+        }
         assert!(
             run.results.is_empty(),
             "{case}: unexpected result event {:?}",

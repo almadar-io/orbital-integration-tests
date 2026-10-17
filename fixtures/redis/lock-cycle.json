@@ -1,0 +1,368 @@
+{
+  "service": "redis",
+  "case": "lock-cycle",
+  "env": {},
+  "steps": [
+    {
+      "action": "lock",
+      "params": {
+        "key": "job:1",
+        "ttl": 5000
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "redis.example.test",
+              6379
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "KjYNCiQzDQpTRVQNCiQ1DQpqb2I6MQ0KJDIyDQpBQUVDQXdRRkJnY0lDUW9MREEwT0R3DQokMg0KTlgNCiQyDQpQWA0KJDQNCjUwMDANCg=="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 79
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "K09LDQo=",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "acquired": true,
+          "lockId": "AAECAwQFBgcICQoLDA0ODw"
+        }
+      },
+      "randoms": [
+        "AAECAwQFBgcICQoLDA0ODw=="
+      ]
+    },
+    {
+      "action": "lock",
+      "params": {
+        "key": "job:1"
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "redis.example.test",
+              6379
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "KjYNCiQzDQpTRVQNCiQ1DQpqb2I6MQ0KJDIyDQpFQkVTRXhRVkZoY1lHUm9iSEIwZUh3DQokMg0KTlgNCiQyDQpQWA0KJDUNCjMwMDAwDQo="
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 80
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "JC0xDQo=",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "acquired": false,
+          "lockId": ""
+        }
+      },
+      "randoms": [
+        "EBESExQVFhcYGRobHB0eHw=="
+      ]
+    },
+    {
+      "action": "unlock",
+      "params": {
+        "key": "job:1",
+        "lockId": "EBESExQVFhcYGRobHB0eHw"
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "redis.example.test",
+              6379
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "KjUNCiQ0DQpFVkFMDQokOTcNCmlmIHJlZGlzLmNhbGwoJ2dldCcsIEtFWVNbMV0pID09IEFSR1ZbMV0gdGhlbiByZXR1cm4gcmVkaXMuY2FsbCgnZGVsJywgS0VZU1sxXSkgZWxzZSByZXR1cm4gMCBlbmQNCiQxDQoxDQokNQ0Kam9iOjENCiQyMg0KRUJFU0V4UVZGaGNZR1JvYkhCMGVIdw0K"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 165
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "OjANCg==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "released": false
+        }
+      }
+    },
+    {
+      "action": "unlock",
+      "params": {
+        "key": "job:1",
+        "lockId": "{{0.lockId}}"
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "redis.example.test",
+              6379
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "KjUNCiQ0DQpFVkFMDQokOTcNCmlmIHJlZGlzLmNhbGwoJ2dldCcsIEtFWVNbMV0pID09IEFSR1ZbMV0gdGhlbiByZXR1cm4gcmVkaXMuY2FsbCgnZGVsJywgS0VZU1sxXSkgZWxzZSByZXR1cm4gMCBlbmQNCiQxDQoxDQokNQ0Kam9iOjENCiQyMg0KQUFFQ0F3UUZCZ2NJQ1FvTERBME9Edw0K"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 165
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "OjENCg==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "released": true
+        }
+      }
+    },
+    {
+      "action": "unlock",
+      "params": {
+        "key": "job:1",
+        "lockId": "AAECAwQFBgcICQoLDA0ODw"
+      },
+      "exchanges": [],
+      "osExchanges": [
+        {
+          "os": {
+            "op": "os/tcp-connect",
+            "args": [
+              "redis.example.test",
+              6379
+            ]
+          },
+          "answer": {
+            "ok": {
+              "sock": 3
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/send",
+            "args": [
+              3,
+              "KjUNCiQ0DQpFVkFMDQokOTcNCmlmIHJlZGlzLmNhbGwoJ2dldCcsIEtFWVNbMV0pID09IEFSR1ZbMV0gdGhlbiByZXR1cm4gcmVkaXMuY2FsbCgnZGVsJywgS0VZU1sxXSkgZWxzZSByZXR1cm4gMCBlbmQNCiQxDQoxDQokNQ0Kam9iOjENCiQyMg0KQUFFQ0F3UUZCZ2NJQ1FvTERBME9Edw0K"
+            ]
+          },
+          "answer": {
+            "ok": {
+              "bytes": 165
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/recv",
+            "args": [
+              3,
+              16384
+            ]
+          },
+          "answer": {
+            "ok": {
+              "data": "OjANCg==",
+              "eof": false
+            }
+          }
+        },
+        {
+          "os": {
+            "op": "os/close",
+            "args": [
+              3
+            ]
+          },
+          "answer": {
+            "ok": {}
+          }
+        }
+      ],
+      "outcome": {
+        "ok": true,
+        "data": {
+          "released": false
+        }
+      }
+    }
+  ],
+  "lockIds": [
+    "AAECAwQFBgcICQoLDA0ODw",
+    "EBESExQVFhcYGRobHB0eHw"
+  ]
+}
