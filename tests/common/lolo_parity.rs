@@ -55,8 +55,7 @@ pub struct ParitySpec {
     /// Path of the atom under `packages/`, e.g. `almadar-std/behaviors/lolo/infra/atoms/std-iconify.lolo`.
     pub atom: &'static str,
     pub trait_name: &'static str,
-    /// The service directory under `fixtures/` here, or under `orbital-integrations/fixtures/` for a host-provider service
-    /// (`HOST_PROVIDER_FIXTURES`).
+    /// The service directory under `fixtures/` here.
     pub fixtures_dir: &'static str,
     pub events: &'static [ActionEvents],
     /// `(ENV_VAR, knob)`: the fixture env value patches the knob default; a `timeoutMs` knob is a number.
@@ -454,16 +453,8 @@ pub fn step_scenarios(spec: &ParitySpec) -> Vec<Json> {
         .collect()
 }
 
-/// Services whose recorded fixtures stay with the host provider that remains in `orbital-integrations`.
-const HOST_PROVIDER_FIXTURES: [&str; 1] = ["knowledge-web"];
-
 fn all_fixture_files(spec: &ParitySpec) -> Vec<Json> {
-    let base = if HOST_PROVIDER_FIXTURES.contains(&spec.fixtures_dir) {
-        root().join("../orbital-integrations/fixtures")
-    } else {
-        root().join("fixtures")
-    };
-    let dir = base.join(spec.fixtures_dir);
+    let dir = root().join("fixtures").join(spec.fixtures_dir);
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap_or_else(|e| panic!("{} is missing ({e})", dir.display()))
         .map(|entry| entry.expect("fixture entry").path())

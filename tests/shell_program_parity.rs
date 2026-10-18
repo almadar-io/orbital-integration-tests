@@ -63,9 +63,6 @@ fn in_process(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
         "rust" => {
             generate_from_file_with_source(path, path, out, &orbital_shell_rust::RustShell::new(), &orbital_shell_rust::RustBackend::new(), &options).map_err(e)?;
         }
-        "mobile" => {
-            generate_from_file_with_source(path, path, out, &orbital_shell_mobile::MobileShell::new(), &orbital_shell_mobile::MobileBackend::new(), &options).map_err(e)?;
-        }
         "android" => {
             orbital_shell_android::require_renderer_pack().map_err(|err| err.to_string())?;
             let backend = orbital_shell_android::AndroidBackend::new().with_resolved_schema(resolved(path, &options));
@@ -99,7 +96,6 @@ fn program(shell: &str) -> Box<dyn ShellProgram> {
         "typescript" => Box::new(TypeScriptProgram),
         "python" => Box::new(orbital_shell_python::shell_program::PythonProgram),
         "rust" => Box::new(orbital_shell_rust::shell_program::RustProgram),
-        "mobile" => Box::new(orbital_shell_mobile::shell_program::MobileProgram),
         "android" => Box::new(orbital_shell_android::shell_program::AndroidProgram),
         "ios" => Box::new(orbital_shell_ios::shell_program::IosProgram),
         "chrome" => Box::new(orbital_shell_chrome::shell_program::ChromeProgram),
@@ -107,7 +103,7 @@ fn program(shell: &str) -> Box<dyn ShellProgram> {
     }
 }
 
-const SHELLS: &[&str] = &["typescript", "python", "rust", "mobile", "android", "ios", "chrome"];
+const SHELLS: &[&str] = &["typescript", "python", "rust", "android", "ios", "chrome"];
 
 fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
     let options = options();

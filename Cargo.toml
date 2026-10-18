@@ -20,7 +20,6 @@ orbital-shell-python = { path = "../orbital-shell-python" }
 orbital-shell-rust = { path = "../orbital-shell-rust" }
 orbital-shell-ios = { path = "../orbital-shell-ios" }
 orbital-shell-android = { path = "../orbital-shell-android" }
-orbital-shell-mobile = { path = "../orbital-shell-mobile" }
 orbital-shell-chrome = { path = "../orbital-shell-chrome" }
 serde_json.workspace = true
 chrono.workspace = true

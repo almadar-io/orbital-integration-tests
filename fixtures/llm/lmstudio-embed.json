@@ -47,7 +47,9 @@
       "usage": {
         "promptTokens": 5,
         "totalTokens": 5
-      }
+      },
+      "key": "",
+      "model": "baai/bge-base-en-v1.5"
     }
   }
 }

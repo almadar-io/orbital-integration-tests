@@ -231,7 +231,7 @@ const HTTP_TIMEOUT_MS: u64 = 6000;
 
 fn knowledge_fixture(case: &str) -> Json {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../orbital-integrations/fixtures/knowledge")
+        .join("fixtures/knowledge")
         .join(format!("{case}.json"));
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()))

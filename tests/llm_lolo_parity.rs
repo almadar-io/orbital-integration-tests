@@ -9,6 +9,11 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 use serde_json::{json, Value as Json};
 
+/// An embed failure echoes the request's correlation `key` (empty when the replay passes none).
+fn failure_extras(fixture: &Json) -> Vec<(&'static str, Json)> {
+    if fixture["action"] == "embed" { vec![("key", json!(""))] } else { Vec::new() }
+}
+
 const SPEC: ParitySpec = ParitySpec {
     atom: "almadar-std/behaviors/lolo/infra/atoms/std-llm.lolo",
     trait_name: "LlmClient",
@@ -45,6 +50,7 @@ const SPEC: ParitySpec = ParitySpec {
     compared_headers: &["content-type", "accept", "authorization", "x-api-key", "anthropic-version", "anthropic-beta", "openai-organization", "user-agent"],
     default_timeout_ms: 300_000,
     base: None,
+    failure_extras,
     ..ParitySpec::DEFAULT
 };
 
