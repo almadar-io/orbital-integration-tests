@@ -126,7 +126,7 @@ fn render_ui_extractors_single_home() {
 }
 
 /// Build the source corpus used by the str_utils fork gate:
-/// every `crates/*/src/**/*.rs` EXCLUDING `orbital-core/src/str_utils.rs`
+/// every `crates/*/src/**/*.rs` EXCLUDING `orbital-core/crates/base/src/str_utils.rs`
 /// (the canonical owner) and any test files, with `#[cfg(test)]` blocks
 /// stripped from the body of each included file.
 fn workspace_src_no_str_utils_no_tests() -> String {
@@ -147,7 +147,7 @@ fn workspace_src_no_str_utils_no_tests() -> String {
             {
                 let p = path.to_string_lossy();
                 // Exclude the canonical owner — it is allowed to define these fns.
-                if p.contains("orbital-core/src/str_utils.rs") {
+                if p.contains("orbital-core/crates/base/src/str_utils.rs") {
                     continue;
                 }
                 // Exclude files whose name ends with `_test.rs` or `_tests.rs`.
@@ -178,7 +178,7 @@ fn workspace_src_no_str_utils_no_tests() -> String {
 /// cross-cutting fixes (e.g. acronym handling) miss callers.
 ///
 /// This test scans every production `.rs` file in the workspace (excluding
-/// `orbital-core/src/str_utils.rs` and any `#[cfg(test)]` / test-file code)
+/// `orbital-core/crates/base/src/str_utils.rs` and any `#[cfg(test)]` / test-file code)
 /// and asserts that ZERO `fn <helper>(` definitions exist outside the canonical
 /// owner — regardless of whether they are `pub`, `pub(crate)`, or private.
 #[test]
@@ -205,7 +205,7 @@ fn no_str_utils_helper_forks() {
             "Pillar-G gate: `{banned}` is defined outside `orbital_core::str_utils` — \
              route to the canonical implementation there instead of adding a local copy \
              (even a private one that merely delegates). \
-             Canonical owner: crates/orbital-core/src/str_utils.rs."
+             Canonical owner: crates/orbital-core/crates/base/src/str_utils.rs."
         );
     }
 }

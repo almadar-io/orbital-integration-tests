@@ -39,7 +39,8 @@
         "ok": true,
         "data": {
           "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?access_type=offline&prompt=consent&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&scope=openid+email&state=<state>&code_challenge=<code_challenge>&code_challenge_method=S256&client_id=client-id-1&response_type=code",
-          "state": "<state>"
+          "state": "<state>",
+          "code": ""
         }
       }
     },

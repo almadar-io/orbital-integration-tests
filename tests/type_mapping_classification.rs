@@ -10,8 +10,8 @@
 //! PatternNode codegen is deferred, riding on named_types), and Phase 3D
 //! flipped `TypeRef` to Faithful in Kotlin/Swift/Python/Rust (every shell
 //! hoists the `named_types` declaration and references it by bare name).
-//! Post-Phase-3D summary: TS 15/10/1, Kotlin 12/12/2, Swift 13/11/2,
-//! Python 15/9/2, Rust 13/11/2 (faithful/widening/lossy). Classification is
+//! Summary with Bytes and CallKey: TS 15/11/1, Kotlin 11/14/2, Swift 12/13/2,
+//! Python 14/11/2, Rust 13/12/2 (faithful/widening/lossy). Classification is
 //! metadata only — this test exercises no rendering path and pins no emitted
 //! bytes.
 
@@ -67,6 +67,10 @@ fn table() -> Vec<Row> {
         Row { name: "File", ty: OirType::File, ts: F, kotlin: F, swift: F, python: F, rust: F },
         // `bytes` renders as base64 text in every target — the binary meaning is erased (W).
         Row { name: "Bytes", ty: OirType::Bytes, ts: W, kotlin: W, swift: W, python: W, rust: W },
+        // `callkey` is a string at rest and classifies as `string` (like `slot`, `pattern`,
+        // `event`, `eventaddress`, which lower to `String`): the explicit-cast rule is a
+        // language-level check, not a rendered type, so no shell loses a value.
+        Row { name: "CallKey", ty: OirType::CallKey, ts: F, kotlin: F, swift: F, python: F, rust: F },
         // TS Declared `Record<string, FieldValue | undefined>` is the shapeless
         // record — Lossy; Rust's `serde_json::Value` is the one faithful json.
         Row { name: "Json", ty: OirType::Json, ts: L, kotlin: L, swift: L, python: L, rust: F },
@@ -161,7 +165,7 @@ fn every_variant_matches_the_enumeration_table_per_shell() {
 #[test]
 fn per_shell_counts_match_the_table_summary() {
     let rows = table();
-    assert_eq!(rows.len(), 25, "the table enumerates 25 OirType variants");
+    assert_eq!(rows.len(), 27, "the table enumerates 27 OirType variants");
     let count = |f: fn(&Row) -> TypeMappingClass| {
         let mut counts = (0, 0, 0);
         for row in &rows {
@@ -175,11 +179,11 @@ fn per_shell_counts_match_the_table_summary() {
     };
     // (faithful, widening, lossy) per the Phase-3D-amended summary (TypeRef
     // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust).
-    assert_eq!(count(|r| r.ts), (14, 10, 1), "TypeScript");
-    assert_eq!(count(|r| r.kotlin), (10, 13, 2), "Kotlin");
-    assert_eq!(count(|r| r.swift), (11, 12, 2), "Swift");
-    assert_eq!(count(|r| r.python), (13, 10, 2), "Python");
-    assert_eq!(count(|r| r.rust), (12, 11, 2), "Rust");
+    assert_eq!(count(|r| r.ts), (15, 11, 1), "TypeScript");
+    assert_eq!(count(|r| r.kotlin), (11, 14, 2), "Kotlin");
+    assert_eq!(count(|r| r.swift), (12, 13, 2), "Swift");
+    assert_eq!(count(|r| r.python), (14, 11, 2), "Python");
+    assert_eq!(count(|r| r.rust), (13, 12, 2), "Rust");
 }
 
 #[test]

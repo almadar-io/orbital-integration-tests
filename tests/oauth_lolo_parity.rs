@@ -340,7 +340,7 @@ fn connection_scenario() -> Value {
             json!({ "provider": "google", "scopes": ["openid"], "redirectUri": "https://app.example.com/callback", "subject": "alice" }),
             None,
             vec![vec![u8::try_from(counter).expect("byte"); 16]],
-            json!({ "ok": true, "data": { "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&scope=openid&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&state=<hex32>&client_id=mock-client-id", "state": "<hex32>" } }),
+            json!({ "ok": true, "data": { "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&scope=openid&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&state=<hex32>&client_id=mock-client-id", "state": "<hex32>", "code": "" } }),
         )
     };
     let tokens = |counter: usize| vec![vec![u8::try_from(counter).expect("byte"); 32], vec![u8::try_from(counter + 1).expect("byte"); 32], vec![u8::try_from(counter + 2).expect("byte"); 8]];
@@ -380,7 +380,7 @@ fn github_userinfo_scenario(domain: &str) -> Value {
         "env": { "OAUTH_MODE": "mock" },
         "steps": [
             step("authorize", json!({ "provider": "github", "scopes": ["repo"], "redirectUri": "https://app.example.com/callback" }), None, vec![hex(16, 3)],
-                json!({ "ok": true, "data": { "authUrl": "https://github.com/login/oauth/authorize?response_type=code&scope=repo&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&state=<hex32>&client_id=mock-client-id", "state": "<hex32>" } })),
+                json!({ "ok": true, "data": { "authUrl": "https://github.com/login/oauth/authorize?response_type=code&scope=repo&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&state=<hex32>&client_id=mock-client-id", "state": "<hex32>", "code": "" } })),
             step("token", json!({ "code": "c", "state": "{{0.state}}" }), None, vec![hex(32, 4), hex(32, 5), hex(8, 6)],
                 json!({ "ok": true, "data": { "accessToken": "<hex64>", "refreshToken": "<hex64>", "expiresIn": 3600, "tokenType": "bearer", "scope": ["repo"] } })),
             step("userinfo", json!({ "accessToken": "{{1.accessToken}}" }), None, vec![],
@@ -419,7 +419,7 @@ fn github_with_incomplete_credentials_authorizes_on_the_mock_backend() {
             json!({ "provider": "github", "scopes": ["repo"], "redirectUri": "https://app.example.com/callback" }),
             None,
             vec![vec![9; 16]],
-            json!({ "ok": true, "data": { "authUrl": "https://github.com/login/oauth/authorize?response_type=code&scope=repo&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&state=<hex32>&client_id=mock-client-id", "state": "<hex32>" } }),
+            json!({ "ok": true, "data": { "authUrl": "https://github.com/login/oauth/authorize?response_type=code&scope=repo&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&state=<hex32>&client_id=mock-client-id", "state": "<hex32>", "code": "" } }),
         )],
     });
     session(&scenario).check_steps(&scenario);

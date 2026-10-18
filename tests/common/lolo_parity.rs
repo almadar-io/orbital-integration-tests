@@ -784,7 +784,7 @@ impl<'a> Replay<'a> {
             )),
             IoRequest::CredentialStatus { name, principal } => {
                 IoAnswer::CredentialStatus(self.host.secret_of(name, principal.as_deref()).map(
-                    |value| credential_status_connected(value.as_deref(), principal.as_deref()),
+                    |value| orbital_core::credential_admin::CredentialStanding::of(credential_status_connected(value.as_deref(), principal.as_deref())),
                 ))
             }
             IoRequest::CredentialForget { name, principal } => {

@@ -22,7 +22,8 @@
         "ok": true,
         "data": {
           "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&scope=openid+email&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback&state=<hex32>&client_id=mock-client-id",
-          "state": "<hex32>"
+          "state": "<hex32>",
+          "code": ""
         }
       }
     },

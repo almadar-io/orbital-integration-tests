@@ -825,7 +825,7 @@ fn existing_harness_answers_credential_status_from_the_same_authority() {
             principal: None,
         }],
     );
-    assert_eq!(answers[0], IoAnswer::CredentialStatus(Ok(true)));
+    assert_eq!(answers[0], IoAnswer::CredentialStatus(Ok(orbital_core::credential_admin::CredentialStanding::of(true))));
 }
 
 #[test]
