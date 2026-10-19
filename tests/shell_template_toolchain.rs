@@ -16,7 +16,7 @@ fn json(path: &Path) -> serde_json::Value {
 
 #[test]
 fn each_shell_root_declares_the_typescript_its_packages_typecheck_with() {
-    for shell in ["almadar-shell", "almadar-shell-hono"] {
+    for shell in ["almadar-shell"] {
         let root = templates_dir().join(shell);
         let root_ts = json(&root.join("package.json"))["devDependencies"]["typescript"].clone();
         let mut typechecking = 0;

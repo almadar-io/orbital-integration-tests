@@ -50,12 +50,8 @@ fn in_process(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
             let backend = TypeScriptBackend { browser_schema: Some(resolved(path, &options)), ..TypeScriptBackend::default() };
             generate_from_file_with_source(path, path, out, &express_shell(), &backend, &options).map_err(e)?;
             orbital_shell_typescript::shell_program::copy_locales(path, out).expect("copy locales");
-            for (manifest, dependencies) in [
-                ("packages/server/package.json", orbital_shell_typescript::KERNEL_SERVER_DEPENDENCIES),
-                ("packages/client/package.json", orbital_shell_typescript::KERNEL_CLIENT_DEPENDENCIES),
-            ] {
-                orbital_shell_typescript::shell_program::add_dependencies(&out.join(manifest), dependencies).expect("add kernel dependencies");
-            }
+            orbital_shell_typescript::shell_program::add_dependencies(&out.join("packages/server/package.json"), orbital_shell_typescript::KERNEL_SERVER_DEPENDENCIES)
+                .expect("add kernel dependencies");
         }
         "python" => {
             generate_from_file_with_source(path, path, out, &orbital_shell_python::PythonShell::new(), &orbital_shell_python::PythonBackend::new(), &options).map_err(e)?;

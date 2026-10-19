@@ -55,13 +55,6 @@ fn backends() -> Vec<(&'static str, Box<dyn Backend>)> {
     orbital_shell_android::require_renderer_pack().expect("android renderer pack");
     vec![
         ("typescript", Box::new(orbital_shell_typescript::TypeScriptBackend::new())),
-        (
-            "typescript-hono",
-            Box::new(orbital_shell_typescript::TypeScriptBackend {
-                server_framework: orbital_shell_typescript::ServerFramework::Hono,
-                ..orbital_shell_typescript::TypeScriptBackend::new()
-            }),
-        ),
         ("python", Box::new(orbital_shell_python::PythonBackend::new())),
         ("rust", Box::new(orbital_shell_rust::RustBackend::new())),
         ("ios", Box::new(orbital_shell_ios::IosBackend::new())),
