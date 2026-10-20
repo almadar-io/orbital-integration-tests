@@ -1214,3 +1214,180 @@ fn an_unreadable_numeric_knob_is_a_typed_error_the_spec_can_expect() {
     let readable = json!({ "case": "readable", "env": { "WEBHOOK_TIMEOUT_MS": "250" } });
     assert!(lolo_parity::patched_json(&KNOB_SPEC, &readable).is_ok());
 }
+
+// Parity for `std-http1.lolo` against the retired `http/listen` + `http/respond` host operators: RECORDED is what
+// the operators delivered and wrote for each case (captured from a twin run before they were deleted, 2026-10-20).
+mod http1_listen_parity {
+    use orbital_core::effects::Effect;
+    use orbital_core::runtime::os_host::completion::{CompletionAnswerer, CompletionDone, KernelCompletionSink};
+    use orbital_core::runtime::os_host::{answer_os, OsGrants, OsHandles, OsHost};
+    use orbital_core::runtime::resumable::{BlockingHost, CallSite, DispatchError, DispatchOutcomes, IoRequest};
+    use orbital_core::runtime::{EntitySource, InMemoryEntityCache, KernelConfig, RuntimeKernel};
+    use orbital_core::{OrbitalSchema, RuntimeEnvironment, Value};
+    use serde_json::{json, Value as Json};
+    use std::io::{Read, Write};
+    use std::net::{Shutdown, TcpListener, TcpStream};
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    const RECORDED: &str = r#"[{"record":{"method":"GET","path":"/ok","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\ncontent-length: 11\r\nconnection: close\r\n\r\nhello there"},{"record":{"method":"GET","path":"/missing","query":"x=1","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 404 Not Found\r\ncontent-length: 9\r\nconnection: close\r\n\r\nnot found"},{"record":{"method":"GET","path":"/ka","query":"","headers":{"host":"a","connection":"keep-alive"},"body":""},"reply":"HTTP/1.1 200 OK\r\nx-a: 1\r\ncontent-length: 2\r\nconnection: close\r\n\r\nka"},{"record":{"method":"POST","path":"/items/7","query":"x=1&y=two","headers":{"host":"a","x-two":"a, b","content-length":"5"},"body":"aGVsbG8="},"reply":"HTTP/1.1 201 Created\r\ncontent-type: text/plain\r\ncontent-length: 4\r\nconnection: close\r\n\r\nmade"},{"record":{"method":"DELETE","path":"/x","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 204 No Content\r\nconnection: close\r\n\r\n"},{"record":{"method":"GET","path":"/tea","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 418 I'm a teapot\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"},{"record":{"method":"GET","path":"/full","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 507 Insufficient Storage\r\ncontent-length: 1\r\nconnection: close\r\n\r\nx"},{"record":null,"reply":"HTTP/1.1 411 Length Required\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"},{"record":null,"reply":"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"},{"record":null,"reply":"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"}]"#;
+
+    const ATOM: &str = "almadar-std/behaviors/lolo/infra/atoms/std-http1.lolo";
+
+    struct Case {
+        name: &'static str,
+        raw: &'static [u8],
+        answer: Option<(u16, &'static [(&'static str, &'static str)], &'static str)>,
+    }
+
+    const CASES: &[Case] = &[
+        Case { name: "GET 200 with a body", raw: b"GET /ok HTTP/1.1\r\nHost: a\r\n\r\n", answer: Some((200, &[("content-type", "text/plain")], "hello there")) },
+        Case { name: "404", raw: b"GET /missing?x=1 HTTP/1.1\r\nHost: a\r\n\r\n", answer: Some((404, &[], "not found")) },
+        Case { name: "keep-alive asked, closed anyway", raw: b"GET /ka HTTP/1.1\r\nHost: a\r\nConnection: keep-alive\r\n\r\n", answer: Some((200, &[("x-a", "1")], "ka")) },
+        Case { name: "POST with content-length body", raw: b"POST /items/7?x=1&y=two HTTP/1.1\r\nHost: a\r\nX-Two: a\r\nx-two: b\r\nContent-Length: 5\r\n\r\nhello", answer: Some((201, &[("content-type", "text/plain")], "made")) },
+        Case { name: "204 has no content-length", raw: b"DELETE /x HTTP/1.1\r\nHost: a\r\n\r\n", answer: Some((204, &[], "")) },
+        Case { name: "418 reason phrase", raw: b"GET /tea HTTP/1.1\r\nHost: a\r\n\r\n", answer: Some((418, &[], "")) },
+        Case { name: "507 reason phrase", raw: b"GET /full HTTP/1.1\r\nHost: a\r\n\r\n", answer: Some((507, &[], "x")) },
+        Case { name: "chunked request body is 411", raw: b"POST /c HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n", answer: None },
+        Case { name: "malformed head is 400", raw: b"NOT HTTP AT ALL\r\n\r\n", answer: None },
+        Case { name: "two different content-lengths is 400", raw: b"POST /d HTTP/1.1\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\nab", answer: None },
+    ];
+
+    fn v(json: Json) -> Value {
+        serde_json::from_value(json).expect("a kernel value")
+    }
+
+    fn b64(bytes: &[u8]) -> String {
+        const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        for c in bytes.chunks(3) {
+            let n = (u32::from(c[0]) << 16) | (u32::from(*c.get(1).unwrap_or(&0)) << 8) | u32::from(*c.get(2).unwrap_or(&0));
+            for i in 0..4 {
+                out.push(if i <= c.len() { T[((n >> (18 - 6 * i)) & 63) as usize] as char } else { '=' });
+            }
+        }
+        out
+    }
+
+    fn send(port: u16, raw: &'static [u8]) -> std::thread::JoinHandle<Vec<u8>> {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+        stream.set_read_timeout(Some(Duration::from_secs(10))).expect("timeout");
+        stream.write_all(raw).expect("write");
+        std::thread::spawn(move || {
+            let mut got = Vec::new();
+            let _ = stream.read_to_end(&mut got);
+            let _ = stream.shutdown(Shutdown::Both);
+            got
+        })
+    }
+
+    fn json_of(value: &Value) -> Json {
+        serde_json::to_value(value).expect("json")
+    }
+
+    fn emits(outcomes: &DispatchOutcomes) -> Vec<(String, Json)> {
+        outcomes
+            .iter()
+            .flat_map(|(_, result)| result.effect_results.iter())
+            .filter_map(|r| match &r.effect {
+                Effect::Emit { event, payload } => Some((event.clone(), json_of(payload))),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn schema(port: u16) -> OrbitalSchema {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages").join(ATOM);
+        let schema = orbital_test_support::lower_lolo_file(&path).unwrap_or_else(|e| panic!("lower: {e}"));
+        let mut json = serde_json::to_value(&schema).expect("schema json");
+        for orbital in json["orbitals"].as_array_mut().expect("orbitals") {
+            for t in orbital["traits"].as_array_mut().into_iter().flatten() {
+                if let Some(entry) = t["config"].get_mut("port") {
+                    entry["default"] = json!(port);
+                }
+            }
+        }
+        let schema: OrbitalSchema = serde_json::from_value(json).expect("schema back from json");
+        orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+        let options = orbital_compiler::CompilerOptions::from_env();
+        orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path))
+            .unwrap_or_else(|e| panic!("resolve: {e}"))
+            .0
+    }
+
+    /// The atom: `std-http1` on the kernel over `os/tcp-listen`, `os/recv`, `os/send`, `os/close`.
+    fn atom() -> Vec<(Option<Json>, Vec<u8>)> {
+        let port = TcpListener::bind("127.0.0.1:0").expect("free port").local_addr().expect("addr").port();
+        let grants: Arc<OsGrants> = Arc::new(serde_json::from_value(json!({ "net": [{ "target": format!("127.0.0.1:{port}"), "kinds": ["listen"] }] })).expect("grants"));
+        let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
+        let kernel = Arc::new(RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default()));
+        kernel.register_schema(schema(port)).expect("register");
+        let handles = Arc::new(OsHandles::default());
+        let answer: Arc<CompletionAnswerer> = {
+            let (handles, grants) = (handles.clone(), grants.clone());
+            Arc::new(move |request: &IoRequest| match request {
+                IoRequest::Os { .. } => {
+                    let on_event = |_: Option<&CallSite>, _: Value| {};
+                    answer_os(Some(&OsHost { grants: &grants, handles: &handles, on_event: &on_event }), request)
+                }
+                other => BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(other),
+            })
+        };
+        let events: Arc<Mutex<Vec<(String, Json)>>> = Arc::default();
+        let errors: Arc<Mutex<Vec<String>>> = Arc::default();
+        let on_done: Arc<CompletionDone> = {
+            let (events, errors) = (events.clone(), errors.clone());
+            Arc::new(move |_: &CallSite, event: &str, result: Result<DispatchOutcomes, DispatchError>| match result {
+                Ok(outcomes) => events.lock().expect("events").extend(emits(&outcomes)),
+                Err(error) => errors.lock().expect("errors").push(format!("{event}: {error}")),
+            })
+        };
+        let sink = Arc::new(KernelCompletionSink::new(kernel.clone(), answer, on_done));
+        handles.completions.set_sink(sink.clone());
+        let fire = |event: &str, payload: Value| {
+            let progress = kernel.start_dispatch("Http1", None, event, payload, None, None).unwrap_or_else(|e| panic!("{event}: {e:?}"));
+            let outcomes = sink.drive(progress).unwrap_or_else(|e| panic!("{event} drive: {e:?}"));
+            events.lock().expect("events").extend(emits(&outcomes));
+        };
+        let wait = |what: &str, seen: usize| -> Json {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                if let Some((_, p)) = events.lock().expect("events").iter().filter(|(e, _)| e == what).nth(seen) {
+                    return p.clone();
+                }
+                assert!(Instant::now() < deadline, "atom: no {what} #{seen}; events {:?}; errors {:?}", events.lock().expect("events"), errors.lock().expect("errors"));
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        };
+        fire("LISTEN", v(json!({})));
+        wait("HTTP1_LISTENING", 0);
+        let mut out = Vec::new();
+        let mut delivered = 0;
+        for case in CASES {
+            let client = send(port, case.raw);
+            let mut record = None;
+            if let Some((status, headers, body)) = case.answer {
+                let request = wait("REQUEST_RECEIVED", delivered);
+                delivered += 1;
+                let headers: Vec<Json> = headers.iter().map(|(n, v)| json!({ "name": n, "value": v })).collect();
+                fire("RESPOND", v(json!({ "requestId": request["requestId"], "status": status, "headers": headers, "body": b64(body.as_bytes()) })));
+                record = Some(json!({ "method": request["method"], "path": request["path"], "query": request["query"], "headers": request["headers"], "body": request["body"] }));
+            }
+            out.push((record, client.join().expect("client")));
+        }
+        assert!(errors.lock().expect("errors").is_empty(), "atom dispatch errors {:?}", errors.lock().expect("errors"));
+        handles.close_all();
+        out
+    }
+
+    #[test]
+    fn std_http1_answers_every_case_with_the_bytes_the_http_operators_wrote() {
+        let want: Vec<Json> = serde_json::from_str(RECORDED).expect("recorded");
+        let got = atom();
+        assert_eq!(want.len(), CASES.len(), "control: one recording per case");
+        for ((case, want), (got_record, got_bytes)) in CASES.iter().zip(&want).zip(&got) {
+            assert_eq!(got_record.clone().unwrap_or(Json::Null), want["record"], "{}: delivered request record", case.name);
+            assert_eq!(String::from_utf8_lossy(got_bytes), want["reply"].as_str().expect("reply"), "{}: reply bytes", case.name);
+        }
+    }
+}
