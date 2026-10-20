@@ -50,8 +50,6 @@ fn in_process(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
             let backend = TypeScriptBackend { browser_schema: Some(resolved(path, &options)), ..TypeScriptBackend::default() };
             generate_from_file_with_source(path, path, out, &express_shell(), &backend, &options).map_err(e)?;
             orbital_shell_typescript::shell_program::copy_locales(path, out).expect("copy locales");
-            orbital_shell_typescript::shell_program::add_dependencies(&out.join("packages/server/package.json"), orbital_shell_typescript::KERNEL_SERVER_DEPENDENCIES)
-                .expect("add kernel dependencies");
         }
         "python" => {
             generate_from_file_with_source(path, path, out, &orbital_shell_python::PythonShell::new(), &orbital_shell_python::PythonBackend::new(), &options).map_err(e)?;
@@ -118,7 +116,12 @@ fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
                 mode: options.mode,
                 service_runtimes: options.compiler.service_runtimes.clone(),
             },
-            options: BTreeMap::new(),
+            // The linked Python path builds the generated host; the program defaults to `host=auto` (the kernel host).
+            options: if shell == "python" {
+                BTreeMap::from([("host".to_string(), serde_json::Value::String("generated".to_string()))])
+            } else {
+                BTreeMap::new()
+            },
         };
         let wire: GenerateRequest = serde_json::from_str(&serde_json::to_string(&request).unwrap()).unwrap();
         match handle(program.as_ref(), &wire, out) {
