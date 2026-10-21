@@ -11,7 +11,7 @@ use lolo_parity::{
 use serde_json::{json, Value};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-google-calendar.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-google-calendar.lolo",
     trait_name: "CalendarClient",
     fixtures_dir: "calendar",
     events: &[

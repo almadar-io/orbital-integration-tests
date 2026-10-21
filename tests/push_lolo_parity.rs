@@ -14,7 +14,7 @@ use serde_json::{json, Value as Json};
 use std::path::PathBuf;
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-push.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-push.lolo",
     trait_name: "PushClient",
     fixtures_dir: "push",
     events: &[ActionEvents { action: "send", input: "PUSH_SEND", result: "PUSH_SEND_RESULT", failure: Some("PUSH_SEND_FAILED"), data_field: None }],

@@ -19,7 +19,7 @@ const REFRESH: &str = "KNOWLEDGE_REFRESH_TOKEN";
 const ID_TOKEN: &str = "KNOWLEDGE_ID_TOKEN";
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-knowledge-topics.lolo",
+    atom: "almadar-behaviors/behaviors/lolo/kflow/atoms/kflow-topics.lolo",
     trait_name: "KnowledgeTopicsClient",
     fixtures_dir: "knowledge-web",
     events: &[ActionEvents {
@@ -189,7 +189,7 @@ fn no_secret_reaches_the_atom_or_a_fixture() {
 // exchanges are dropped and a cache hit is staged by running a miss first. Every other exchange is replayed exactly.
 
 const ICON_SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/organisms/std-concept-icon.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/organisms/std-concept-icon.lolo",
     trait_name: "ConceptIconResolver",
     fixtures_dir: "knowledge",
     events: &[ActionEvents {
@@ -208,7 +208,7 @@ const ICON_SPEC: ParitySpec = ParitySpec {
 };
 
 const PERSONA_SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/organisms/std-concept-persona.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/organisms/std-concept-persona.lolo",
     trait_name: "ConceptPersonaResolver",
     fixtures_dir: "knowledge",
     events: &[ActionEvents {

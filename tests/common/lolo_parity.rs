@@ -52,7 +52,7 @@ pub struct ActionEvents {
 }
 
 pub struct ParitySpec {
-    /// Path of the atom under `packages/`, e.g. `almadar-std/behaviors/lolo/infra/atoms/std-iconify.lolo`.
+    /// Path of the atom under `packages/`, e.g. `almadar-std/behaviors/lolo/connect/atoms/std-iconify.lolo`.
     pub atom: &'static str,
     pub trait_name: &'static str,
     /// The service directory under `fixtures/` here.

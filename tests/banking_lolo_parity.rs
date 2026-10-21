@@ -15,7 +15,7 @@ use orbital_core::runtime::http_request::CredentialSlot;
 use serde_json::{json, Value as Json};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-banking.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-banking.lolo",
     trait_name: "BankingClient",
     fixtures_dir: "banking",
     events: &[

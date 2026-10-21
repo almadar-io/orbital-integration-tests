@@ -8,7 +8,7 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-github.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-github.lolo",
     trait_name: "GithubClient",
     fixtures_dir: "github",
     events: &[

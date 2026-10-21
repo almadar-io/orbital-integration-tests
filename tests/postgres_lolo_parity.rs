@@ -18,7 +18,7 @@ fn failure_extras(fixture: &Value) -> Vec<(&'static str, Value)> {
 }
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-postgres.lolo",
+    atom: "almadar-std/behaviors/lolo/store/atoms/std-postgres.lolo",
     trait_name: "PostgresClient",
     fixtures_dir: "postgres",
     events: &[ActionEvents { action: "query", input: "PG_QUERY", result: "PG_RESULT", failure: Some("PG_FAILED"), data_field: None }],

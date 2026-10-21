@@ -7,7 +7,7 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-youtube.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-youtube.lolo",
     trait_name: "YoutubeClient",
     fixtures_dir: "youtube",
     events: &[

@@ -7,7 +7,7 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-iconify.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-iconify.lolo",
     trait_name: "IconifyClient",
     fixtures_dir: "iconify",
     events: &[

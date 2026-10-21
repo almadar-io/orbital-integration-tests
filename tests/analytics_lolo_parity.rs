@@ -16,7 +16,7 @@ use serde_json::{json, Value as Json};
 const ORIGIN: &str = "https://almadar-analytics--kflow-b3a39.europe-west4.hosted.app";
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-analytics.lolo",
+    atom: "almadar-std/behaviors/lolo/ops/atoms/std-analytics.lolo",
     trait_name: "Analytics",
     fixtures_dir: "analytics",
     events: &[

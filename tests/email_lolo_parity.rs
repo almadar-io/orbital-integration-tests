@@ -9,7 +9,7 @@ use lolo_parity::{ActionEvents, ParitySpec};
 use serde_json::{json, Value};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-email.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-email.lolo",
     trait_name: "EmailSender",
     fixtures_dir: "email",
     events: &[ActionEvents { action: "send", input: "EMAIL_SEND", result: "EMAIL_SENT", failure: Some("EMAIL_SEND_FAILED"), data_field: None }],

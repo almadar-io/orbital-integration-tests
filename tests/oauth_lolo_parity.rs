@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-oauth.lolo",
+    atom: "almadar-std/behaviors/lolo/auth/atoms/std-oauth.lolo",
     trait_name: "OAuthClient",
     fixtures_dir: "oauth",
     events: &[

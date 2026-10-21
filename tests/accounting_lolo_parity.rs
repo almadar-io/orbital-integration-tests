@@ -7,7 +7,7 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-accounting-export.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-accounting-export.lolo",
     trait_name: "AccountingExporter",
     fixtures_dir: "accounting",
     events: &[

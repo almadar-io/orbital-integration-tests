@@ -15,7 +15,7 @@ mod session_regressions {
     use serde_json::{json, Value as Json};
 
     const SPEC: ParitySpec = ParitySpec {
-        atom: "almadar-std/behaviors/lolo/infra/atoms/std-github.lolo",
+        atom: "almadar-std/behaviors/lolo/connect/atoms/std-github.lolo",
         trait_name: "Harness",
         fixtures_dir: "iconify",
         events: &[
@@ -683,7 +683,7 @@ use orbital_core::OrbitalSchema;
 use serde_json::json;
 
 const LEGACY_SPEC: lolo_parity::ParitySpec = lolo_parity::ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-iconify.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-iconify.lolo",
     trait_name: "Harness",
     fixtures_dir: "iconify",
     events: &[],
@@ -985,7 +985,7 @@ fn steps_tokens_match_generated_values_of_their_shape_only() {
 }
 
 const STEPS_SPEC: lolo_parity::ParitySpec = lolo_parity::ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-iconify.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-iconify.lolo",
     trait_name: "Harness",
     fixtures_dir: "iconify",
     events: &[
@@ -1189,7 +1189,7 @@ fn an_unrecorded_os_ask_fails_the_replay() {
 }
 
 const KNOB_SPEC: lolo_parity::ParitySpec = lolo_parity::ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-webhook.lolo",
+    atom: "almadar-std/behaviors/lolo/net/atoms/std-webhook.lolo",
     trait_name: "WebhookClient",
     fixtures_dir: "webhook",
     env_knobs: &[("WEBHOOK_TIMEOUT_MS", "timeoutMs")],
@@ -1233,7 +1233,7 @@ mod http1_listen_parity {
     // The operator's 411-for-chunked recording is dropped: chunked request bodies are decoded (owner ruling "HTTP scope", S52).
     const RECORDED: &str = r#"[{"record":{"method":"GET","path":"/ok","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\ncontent-length: 11\r\nconnection: close\r\n\r\nhello there"},{"record":{"method":"GET","path":"/missing","query":"x=1","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 404 Not Found\r\ncontent-length: 9\r\nconnection: close\r\n\r\nnot found"},{"record":{"method":"GET","path":"/ka","query":"","headers":{"host":"a","connection":"keep-alive"},"body":""},"reply":"HTTP/1.1 200 OK\r\nx-a: 1\r\ncontent-length: 2\r\nconnection: close\r\n\r\nka"},{"record":{"method":"POST","path":"/items/7","query":"x=1&y=two","headers":{"host":"a","x-two":"a, b","content-length":"5"},"body":"aGVsbG8="},"reply":"HTTP/1.1 201 Created\r\ncontent-type: text/plain\r\ncontent-length: 4\r\nconnection: close\r\n\r\nmade"},{"record":{"method":"DELETE","path":"/x","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 204 No Content\r\nconnection: close\r\n\r\n"},{"record":{"method":"GET","path":"/tea","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 418 I'm a teapot\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"},{"record":{"method":"GET","path":"/full","query":"","headers":{"host":"a"},"body":""},"reply":"HTTP/1.1 507 Insufficient Storage\r\ncontent-length: 1\r\nconnection: close\r\n\r\nx"},{"record":null,"reply":"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"},{"record":null,"reply":"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"}]"#;
 
-    const ATOM: &str = "almadar-std/behaviors/lolo/infra/atoms/std-http1.lolo";
+    const ATOM: &str = "almadar-std/behaviors/lolo/net/atoms/std-http1.lolo";
 
     struct Case {
         name: &'static str,
@@ -1674,7 +1674,7 @@ mod http1_listen_parity {
         assert!(wrong.is_empty(), "{wrong:#?}");
     }
 
-    const SERVER: &str = "almadar-std/behaviors/lolo/infra/organisms/std-http-server.lolo";
+    const SERVER: &str = "almadar-std/behaviors/lolo/net/organisms/std-http-server.lolo";
 
     /// The organism's own `net` grant and Http1 port; a composed trait's knobs are not reachable from the schema.
     const SERVER_PORT: u16 = 3000;
@@ -1826,7 +1826,7 @@ mod machine_parity {
     fn atom_rows(program: &OrbitalSchema) -> Json {
         let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
         let kernel = RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default());
-        kernel.register_schema(resolved_lolo("almadar-std/behaviors/lolo/infra/atoms/std-machine.lolo")).expect("register");
+        kernel.register_schema(resolved_lolo("almadar-std/behaviors/lolo/dev/atoms/std-machine.lolo")).expect("register");
         let payload: Value = serde_json::from_value(json!({ "program": serde_json::to_value(program).expect("program json") })).expect("payload");
         let progress = kernel.start_dispatch("Machine", None, "MACHINE_READ", payload, None, None).unwrap_or_else(|e| panic!("dispatch: {e:?}"));
         let answer = |request: &IoRequest| BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(request);
@@ -1868,12 +1868,12 @@ mod machine_parity {
 
     #[test]
     fn machine_rows_match_on_std_cooldown() {
-        assert_parity("std-cooldown", &resolved_lolo("almadar-std/behaviors/lolo/infra/atoms/std-cooldown.lolo"));
+        assert_parity("std-cooldown", &resolved_lolo("almadar-std/behaviors/lolo/flow/atoms/std-cooldown.lolo"));
     }
 
     #[test]
     fn machine_rows_match_on_guarded_std_retry() {
-        let program = resolved_lolo("almadar-std/behaviors/lolo/infra/atoms/std-retry.lolo");
+        let program = resolved_lolo("almadar-std/behaviors/lolo/flow/atoms/std-retry.lolo");
         assert!(recorded("std-retry").as_array().expect("rows").iter().any(|r| r["guarded"] == json!(true)), "control: std-retry has guarded rows");
         assert_parity("std-retry", &program);
     }
@@ -1921,8 +1921,8 @@ mod crypto_vectors {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    fn atom(name: &str) -> OrbitalSchema {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/almadar-std/behaviors/lolo/infra/atoms").join(format!("{name}.lolo"));
+    fn atom(topic: &str, name: &str) -> OrbitalSchema {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/almadar-std/behaviors/lolo").join(topic).join("atoms").join(format!("{name}.lolo"));
         orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
         let schema = orbital_test_support::lower_lolo_file(&path).unwrap_or_else(|e| panic!("lower {name}: {e}"));
         let options = orbital_compiler::CompilerOptions::from_env();
@@ -1988,7 +1988,7 @@ mod crypto_vectors {
     #[test]
     #[ignore = "slow: run in checkpoint"]
     fn crypto_ecdsa_p256_vectors() {
-        let program = atom("std-ecdsa");
+        let program = atom("auth", "std-ecdsa");
         run_group("ecdsa", |c| {
             let payload = json!({ "x": c["x"], "y": c["y"], "message": c["message"], "signature": c["signature"] });
             let got = verdict("ECDSA_", answer(&program, "EcdsaVerifier", "ECDSA_VERIFY", payload, &["ECDSA_VERIFIED", "ECDSA_REFUSED"]));
@@ -1998,7 +1998,7 @@ mod crypto_vectors {
 
     #[test]
     fn crypto_rsa_pkcs1_vectors() {
-        let program = atom("std-rsa");
+        let program = atom("auth", "std-rsa");
         run_group("rsa", |c| {
             let payload = json!({ "n": c["n"], "e": c["e"], "message": c["message"], "signature": c["signature"] });
             let got = verdict("RSA_", answer(&program, "RsaVerifier", "RSA_VERIFY", payload, &["RSA_VERIFIED", "RSA_REFUSED"]));
@@ -2008,7 +2008,7 @@ mod crypto_vectors {
 
     #[test]
     fn crypto_jws_vectors() {
-        let program = atom("std-jws");
+        let program = atom("auth", "std-jws");
         run_group("jws", |c| {
             let (event, payload) = answer(&program, "JwsVerifier", "JWS_VERIFY", json!({ "token": c["token"], "jwk": c["jwk"] }), &["JWS_VERIFIED", "JWS_REFUSED"]);
             let got = match payload["reason"].as_str() {
@@ -2034,7 +2034,7 @@ mod crypto_vectors {
 
     #[test]
     fn crypto_bigint_vectors() {
-        let program = atom("std-bigint");
+        let program = atom("codec", "std-bigint");
         let answers = ["MODPOW_ANSWERED", "MODINV_ANSWERED", "DIVMOD_ANSWERED", "BIGINT_REFUSED"];
         run_group("bigint", |c| {
             let (event, payload) = answer(&program, "BigIntCodec", c["op"].as_str().expect("op"), c["args"].clone(), &answers);

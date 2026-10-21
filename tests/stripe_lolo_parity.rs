@@ -8,7 +8,7 @@ use lolo_parity::{ActionEvents, FixtureAuthority, ParitySession, ParitySpec, Rep
 use serde_json::Value;
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-stripe.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-stripe.lolo",
     trait_name: "StripeClient",
     fixtures_dir: "stripe",
     events: &[

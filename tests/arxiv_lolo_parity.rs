@@ -8,7 +8,7 @@ use lolo_parity::{ActionEvents, ParitySpec};
 use serde_json::json;
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-arxiv.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-arxiv.lolo",
     trait_name: "ArxivClient",
     fixtures_dir: "arxiv",
     events: &[ActionEvents { action: "search", input: "ARXIV_SEARCH", result: "ARXIV_SEARCH_RESULT", failure: Some("ARXIV_SEARCH_ERROR"), data_field: None }],

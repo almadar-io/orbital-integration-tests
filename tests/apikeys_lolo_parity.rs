@@ -10,7 +10,7 @@ use lolo_parity::{ActionEvents, ParitySession, ParitySpec, ReplayStep};
 use serde_json::Value;
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-api-keys.lolo",
+    atom: "almadar-std/behaviors/lolo/auth/atoms/std-api-keys.lolo",
     trait_name: "ApiKeyMinter",
     fixtures_dir: "apikeys",
     events: &[ActionEvents {

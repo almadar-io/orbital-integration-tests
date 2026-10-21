@@ -18,7 +18,7 @@ const BINARY_BASE64: &str = "JVBERgD//oDDKA0K";
 const FAILED: Option<&str> = Some("STORAGE_FAILED");
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-storage.lolo",
+    atom: "almadar-std/behaviors/lolo/store/atoms/std-storage.lolo",
     trait_name: "StorageClient",
     fixtures_dir: "storage",
     events: &[

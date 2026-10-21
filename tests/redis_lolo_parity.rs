@@ -22,7 +22,7 @@ fn failure_extras(fixture: &Value) -> Vec<(&'static str, Value)> {
 const FAILED: Option<&str> = Some("REDIS_FAILED");
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-redis.lolo",
+    atom: "almadar-std/behaviors/lolo/store/atoms/std-redis.lolo",
     trait_name: "RedisClient",
     fixtures_dir: "redis",
     events: &[

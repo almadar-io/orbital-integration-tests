@@ -7,7 +7,7 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-ml.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-ml.lolo",
     trait_name: "MlClient",
     fixtures_dir: "ml",
     events: &[ActionEvents {

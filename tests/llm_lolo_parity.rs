@@ -15,7 +15,7 @@ fn failure_extras(fixture: &Json) -> Vec<(&'static str, Json)> {
 }
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-llm.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-llm.lolo",
     trait_name: "LlmClient",
     fixtures_dir: "llm",
     events: &[

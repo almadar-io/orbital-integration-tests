@@ -6,7 +6,7 @@ fn dbg() {
     use orbital_core::runtime::{EntitySource, InMemoryEntityCache, KernelConfig, RuntimeKernel};
     use orbital_core::{RuntimeEnvironment, Value};
     use std::sync::Arc;
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/almadar-std/behaviors/lolo/infra/atoms/std-stripe.lolo");
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/almadar-std/behaviors/lolo/connect/atoms/std-stripe.lolo");
     let schema = orbital_test_support::lower_lolo_file(&path).unwrap();
     let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
     let kernel = RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default());

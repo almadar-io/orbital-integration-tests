@@ -20,7 +20,7 @@ fn failure_extras(fixture: &Value) -> Vec<(&'static str, Value)> {
 }
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-webhook.lolo",
+    atom: "almadar-std/behaviors/lolo/net/atoms/std-webhook.lolo",
     trait_name: "WebhookClient",
     fixtures_dir: "webhook",
     events: &[ActionEvents {

@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 const ORIGIN: &str = "https://demo.docusign.net";
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-esign.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-esign.lolo",
     trait_name: "EsignClient",
     fixtures_dir: "esign",
     events: &[

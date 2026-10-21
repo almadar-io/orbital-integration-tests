@@ -12,7 +12,7 @@ use orbital_core::runtime::http_request::{CredentialSlot, SecretScope};
 use serde_json::{json, Value};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-drive.lolo",
+    atom: "almadar-std/behaviors/lolo/store/atoms/std-drive.lolo",
     trait_name: "DriveClient",
     fixtures_dir: "drive",
     events: &[

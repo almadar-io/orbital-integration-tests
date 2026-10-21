@@ -7,7 +7,7 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-meta-ads.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-meta-ads.lolo",
     trait_name: "MetaAdsClient",
     fixtures_dir: "metaAds",
     events: &[

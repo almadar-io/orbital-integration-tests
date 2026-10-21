@@ -7,7 +7,7 @@ mod lolo_parity;
 use lolo_parity::{ActionEvents, ParitySpec};
 
 const SPEC: ParitySpec = ParitySpec {
-    atom: "almadar-std/behaviors/lolo/infra/atoms/std-twilio.lolo",
+    atom: "almadar-std/behaviors/lolo/connect/atoms/std-twilio.lolo",
     trait_name: "TwilioClient",
     fixtures_dir: "twilio",
     events: &[
