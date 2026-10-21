@@ -243,3 +243,56 @@ fn control_the_catalog_is_not_widened_by_a_service_the_declared_order_leaves_out
     assert!(catalog.declared_for("queue").is_empty());
     assert_eq!(catalog.declared_for("apikeys").len(), 1);
 }
+
+/// The shared `kv-trace.json` (the Node and browser kv ports replay it too) through the native kv host.
+mod kv_trace_parity {
+    use orbital_core::os::{OsError, OsOp};
+    use orbital_core::runtime::kv_host::{json_text, KvStores};
+    use orbital_core::runtime::os_host::{answer_os, KvMode, OsGrants, OsHandles, OsHost};
+    use orbital_core::runtime::resumable::{CallSite, IoAnswer, IoRequest};
+    use orbital_core::Value;
+    use serde_json::Value as Json;
+    use std::collections::BTreeMap;
+    use std::path::Path;
+
+    fn v(json: Json) -> Value {
+        serde_json::from_value(json).expect("value")
+    }
+
+    fn replay(kv: KvStores, steps: &[Json]) {
+        let handles = OsHandles { kv, ..OsHandles::default() };
+        let grants = OsGrants { kv: BTreeMap::from([("rows".to_string(), vec![KvMode::Read, KvMode::Write])]), ..OsGrants::default() };
+        let on_event = |_: Option<&CallSite>, _: Value| {};
+        let host = OsHost { grants: &grants, handles: &handles, on_event: &on_event };
+        for (i, step) in steps.iter().enumerate() {
+            let name = step["op"].as_str().unwrap();
+            let op = OsOp::from_name(name).unwrap_or_else(|| panic!("{name} is not an op"));
+            let args: Vec<Value> = step["args"].as_array().unwrap().iter().cloned().map(v).collect();
+            let answered: Result<Value, OsError> = match answer_os(Some(&host), &IoRequest::Os { op, args, key: None, site: None }) {
+                IoAnswer::Os(answer) => answer,
+                other => panic!("step {i} {name}: {other:?}"),
+            };
+            match (answered, step.get("expectError").and_then(Json::as_str)) {
+                (Ok(value), None) => assert_eq!(json_text(&value), json_text(&v(step["expect"].clone())), "step {i} {name}"),
+                (Err(error), Some(kind)) => assert_eq!(error.kind.as_str(), kind, "step {i} {name}: {}", error.message),
+                (other, want) => panic!("step {i} {name}: answered {other:?}, expected {want:?} / {}", step["expect"]),
+            }
+        }
+    }
+
+    #[test]
+    fn the_shared_kv_trace_replays_byte_identical_on_memory_and_directory_stores() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../orbital-shell-typescript/renderers/web/test/fixtures/kv-trace.json");
+        let trace: Json = serde_json::from_str(&std::fs::read_to_string(&path).expect("the shared kv trace")).unwrap();
+        let (app, locale) = (trace["app"].as_str().unwrap(), trace["locale"].as_str().unwrap());
+        let steps = trace["steps"].as_array().unwrap();
+        assert_eq!(steps.len(), 20);
+        replay(KvStores::memory(app, locale), steps);
+        let dir = std::env::temp_dir().join(format!("kv-trace-parity-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        replay(KvStores::directory(&dir, app, locale), steps);
+        let bytes = std::fs::read_to_string(dir.join("kv").join(app).join(locale).join("rows.json")).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(bytes, r#"{"order-line/1":false,"order.log/0001":{"op":"create"},"order/3":"three"}"#);
+    }
+}
