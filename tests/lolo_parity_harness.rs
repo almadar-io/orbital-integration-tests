@@ -2046,23 +2046,9 @@ mod crypto_vectors {
 }
 
 mod bytes_parity {
-    use orbital_core::effects::Effect;
     use orbital_core::evaluator::{eval_expr, BindingContext};
-    use orbital_core::runtime::resumable::{drive_blocking, BlockingHost, IoRequest};
-    use orbital_core::runtime::{EntitySource, InMemoryEntityCache, KernelConfig, RuntimeKernel};
     use orbital_core::schema::SExpression;
-    use orbital_core::{OrbitalSchema, RuntimeEnvironment, Value};
-    use serde_json::{json, Value as Json};
-    use std::path::PathBuf;
-    use std::sync::Arc;
-
-    fn atom() -> OrbitalSchema {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/almadar-std/behaviors/lolo/infra/atoms/std-bytes.lolo");
-        orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
-        let schema = orbital_test_support::lower_lolo_file(&path).unwrap_or_else(|e| panic!("lower std-bytes: {e}"));
-        let options = orbital_compiler::CompilerOptions::from_env();
-        orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path)).unwrap_or_else(|e| panic!("resolve std-bytes: {e}")).0
-    }
+    use serde_json::Value as Json;
 
     fn shown(value: &Json) -> String {
         match value {
@@ -2080,49 +2066,7 @@ mod bytes_parity {
         }
     }
 
-    fn request(form: &Json) -> (&'static str, Json) {
-        let a = form.as_array().expect("form");
-        match a[0].as_str().expect("op") {
-            "bytes/at" => ("BYTE_AT", json!({ "data": a[1], "i": a[2] })),
-            "bytes/index-of" => ("INDEX_OF", if a.len() > 3 { json!({ "data": a[1], "needle": a[2], "from": a[3] }) } else { json!({ "data": a[1], "needle": a[2] }) }),
-            "bytes/read-uint" => ("READ_UINT", json!({ "data": a[1], "offset": a[2], "width": a[3], "endian": a[4] })),
-            "bytes/write-uint" => ("WRITE_UINT", json!({ "value": a[1], "width": a[2], "endian": a[3] })),
-            "str/to-int" => ("TO_INT", json!({ "s": a[1] })),
-            op => panic!("no atom event for {op}"),
-        }
-    }
-
-    fn through_atom(program: &OrbitalSchema, form: &Json) -> String {
-        let (event, payload) = request(form);
-        let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
-        let kernel = RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default());
-        kernel.register_schema(program.clone()).expect("register");
-        let payload: Value = serde_json::from_value(payload).expect("payload");
-        let progress = match kernel.start_dispatch("BytesCodec", None, event, payload, None, None) {
-            Ok(p) => p,
-            Err(e) => return format!("DISPATCH-REJECTED {e:?}"),
-        };
-        let host = |request: &IoRequest| BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(request);
-        let outcomes = drive_blocking(&kernel, progress, &host).unwrap_or_else(|e| panic!("drive: {e:?}"));
-        let got: Vec<String> = outcomes
-            .iter()
-            .flat_map(|(_, o)| {
-                assert_eq!(o.failure, None, "an effect failed");
-                o.effect_results.iter()
-            })
-            .filter_map(|r| match &r.effect {
-                Effect::Emit { event, .. } if event == "BYTES_REFUSED" => Some("REFUSED".to_string()),
-                Effect::Emit { event, payload } if event.ends_with("_ANSWERED") => {
-                    Some(shown(&serde_json::to_value(payload).expect("json").get("value").cloned().unwrap_or(Json::Null)))
-                }
-                _ => None,
-            })
-            .collect();
-        assert_eq!(got.len(), 1, "exactly one answer for {form}, got {got:?}");
-        got.into_iter().next().expect("answer")
-    }
-
-    /// Each form with what the `bytes/*` / `str/to-int` operators answered (recorded before their retirement).
+    /// Each form with what the `bytes/*` / `str/to-int` operators answer.
     const RECORDED: &[(&str, &str)] = &[
         (r#"["bytes/at", "", 0]"#, "NONE"),
         (r#"["bytes/at", "AAEC/w==", 0]"#, "VALUE 0"),
@@ -2216,20 +2160,5 @@ mod bytes_parity {
             })
             .collect();
         assert!(failures.is_empty(), "operators diverge from the recording:\n{}", failures.join("\n"));
-    }
-
-    #[test]
-    fn std_bytes_answers_what_the_operators_answered() {
-        let program = atom();
-        assert!(RECORDED.iter().any(|(_, w)| *w == "REFUSED") && RECORDED.iter().any(|(_, w)| *w == "NONE"), "control: refusals and absences are recorded");
-        let failures: Vec<String> = RECORDED
-            .iter()
-            .filter_map(|(form, want)| {
-                let form: Json = serde_json::from_str(form).expect("form");
-                let got = through_atom(&program, &form);
-                (got != *want).then(|| format!("{form}: recorded {want}, atom {got}"))
-            })
-            .collect();
-        assert!(failures.is_empty(), "std-bytes diverges from the recorded operators:\n{}", failures.join("\n"));
     }
 }

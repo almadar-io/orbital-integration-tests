@@ -16,16 +16,9 @@ orbital SseOverHttp1 {
       port: 47391
     }
     listens {
-      Http1HeadSearch.INDEX_OF_ANSWERED -> HEAD_SEARCHED
       Sse.RESPOND_HEAD -> RESPOND_HEAD
       Sse.RESPOND_CHUNK -> RESPOND_CHUNK
       Sse.RESPOND_END -> RESPOND_END
-    }
-  }
-
-  trait Http1HeadSearch = H1.traits.Http1HeadSearch {
-    listens {
-      Http1.HEAD_SEARCH -> INDEX_OF
     }
   }
 
@@ -36,5 +29,5 @@ orbital SseOverHttp1 {
     }
   }
 
-  page "/sse" as SsePage -> Http1, Http1HeadSearch, Sse
+  page "/sse" as SsePage -> Http1, Sse
 }
