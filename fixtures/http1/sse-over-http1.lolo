@@ -1,0 +1,40 @@
+app sse-over-http1 [
+  version: "1.0.0",
+  net: { "127.0.0.1:47391": [listen] },
+  description: "Test program: std-sse composed over std-http1."
+]
+uses H1 from "std/behaviors/std-http1"
+uses S from "std/behaviors/std-sse"
+
+orbital SseOverHttp1 {
+  entity SseOverHttp1Program [runtime] {
+    id : string!
+  }
+
+  trait Http1 = H1.traits.Http1 {
+    config {
+      port: 47391
+    }
+    listens {
+      Http1HeadSearch.INDEX_OF_ANSWERED -> HEAD_SEARCHED
+      Sse.RESPOND_HEAD -> RESPOND_HEAD
+      Sse.RESPOND_CHUNK -> RESPOND_CHUNK
+      Sse.RESPOND_END -> RESPOND_END
+    }
+  }
+
+  trait Http1HeadSearch = H1.traits.Http1HeadSearch {
+    listens {
+      Http1.HEAD_SEARCH -> INDEX_OF
+    }
+  }
+
+  trait Sse = S.traits.Sse {
+    listens {
+      Http1.STREAM_IDLE -> STREAM_IDLE
+      Http1.STREAM_CLOSED -> STREAM_CLOSED
+    }
+  }
+
+  page "/sse" as SsePage -> Http1, Http1HeadSearch, Sse
+}
