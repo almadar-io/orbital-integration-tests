@@ -24,5 +24,5 @@ orbital-shell-rust = { path = "../orbital-shell-rust" }
 orbital-client-dioxus = { path = "../orbital-shell-rust/renderers/dioxus", features = ["native"] }
 orbital-shell-ios = { path = "../orbital-shell-ios" }
 orbital-shell-android = { path = "../orbital-shell-android" }
-orbital-shell-chrome = { path = "../orbital-shell-typescript/renderers/chrome/native" }
+orbital-shell-chrome = { path = "../orbital-shell-typescript/src/chrome" }
 chrono.workspace = true
