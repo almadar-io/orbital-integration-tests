@@ -938,7 +938,7 @@ pub fn patched_json(spec: &ParitySpec, fixture: &Json) -> Result<Json, KnobError
 fn lowered(spec: &ParitySpec, fixture: &Json) -> OrbitalSchema {
     let json = patched_json(spec, fixture).unwrap_or_else(|e| panic!("{e}"));
     let schema: OrbitalSchema = serde_json::from_value(json).expect("schema back from json");
-    orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+    orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
     let path = atom_path(spec);
     let options = orbital_compiler::CompilerOptions::from_env();
     let (schema, _) =

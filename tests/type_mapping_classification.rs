@@ -33,6 +33,7 @@ struct Row {
 
 fn struct_variant(tag: &str) -> OirField {
     OirField::new(tag, OirType::Struct {
+        additional: None,
         fields: vec![OirField::new("value", OirType::String)],
     })
 }
@@ -103,7 +104,7 @@ fn table() -> Vec<Row> {
         // Python/Rust flipped Lossy→Faithful with the named-struct fix.
         Row {
             name: "Struct",
-            ty: OirType::Struct { fields: vec![OirField::new("name", OirType::String)] },
+            ty: OirType::Struct { additional: None, fields: vec![OirField::new("name", OirType::String)] },
             ts: F,
             kotlin: F,
             swift: F,

@@ -1,0 +1,62 @@
+app syscall-boundary [version: "1.0.0", inbound: ["cli-boundary"], fs: { cwd: "probe.txt": [read] }]
+type BoundaryRequest = { argv : [string]!, cwd : string! }
+orbital BoundaryOrbital {
+  entity BoundaryRun [runtime] {
+    id : string!
+    remaining : number = 2105
+    completed : number = 0
+    requestedPath : string = ""
+  }
+  trait Boundary -> BoundaryRun [integration] {
+    initial: ready
+    state ready {
+      INIT -> ready
+      CALLED -> ready when (!= (array/len (object/get (json/parse @payload.rawBody BoundaryRequest) "argv")) 1)
+        (emit FINISHED { status: 400, body: "expected one path argument" })
+      CALLED -> ready when (= (array/len (object/get (json/parse @payload.rawBody BoundaryRequest) "argv")) 1)
+        (set @entity.requestedPath (str/join (object/get (json/parse @payload.rawBody BoundaryRequest) "argv") ""))
+        (set @entity.remaining 2105)
+        (set @entity.completed 0)
+        (emit NEXT {})
+      NEXT -> ready when (> @entity.remaining 0)
+        (os/stat { anchor: "cwd" path: @entity.requestedPath } {  emit: { success: ANSWERED, failure: FAILED } })
+      NEXT -> ready when (= @entity.remaining 0)
+        (emit FINISHED { status: 200, body: (str/template "{{completed}}" { completed: @entity.completed }) })
+      ANSWERED -> ready
+        (set @entity.completed (+ @entity.completed 1))
+        (set @entity.remaining (- @entity.remaining 1))
+        (emit NEXT {})
+      FAILED -> ready
+        (emit FINISHED { status: 500, body: @payload.error })
+    }
+    listens {
+      CALLED -> inbound "cli-boundary" answers FINISHED { headers : Map string string  rawBody : string! }
+      ANSWERED {
+        kind : string!
+        size : number!
+        mode : number!
+        uid : number!
+        gid : number!
+        atime : number!
+        mtime : number!
+        ctime : number!
+      }
+      FAILED { error : string!  kind : string! }
+    }
+    emits {
+      ANSWERED -> internal {
+        kind : string!
+        size : number!
+        mode : number!
+        uid : number!
+        gid : number!
+        atime : number!
+        mtime : number!
+        ctime : number!
+      }
+      FAILED -> internal { error : string!  kind : string! }
+      NEXT -> internal {}
+      FINISHED -> internal { status : number!  body : string! }
+    }
+  }
+}

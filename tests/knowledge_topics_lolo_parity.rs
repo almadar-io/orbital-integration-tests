@@ -268,7 +268,7 @@ fn organism_contracts(fixture: &Json) -> Vec<ExchangeContract> {
 // The organisms compose std atoms (`Alias.traits.X`); the lowered file leaves those as references, so the program is
 // resolved the way `orb compile` resolves it from the package directory before the kernel registers it.
 fn resolved_organism(spec: &ParitySpec) -> orbital_core::OrbitalSchema {
-    orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+    orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../packages").join(spec.atom);
     let mut options = orbital_compiler::CompilerOptions::from_env();
     let start = path.parent().expect("atom dir").to_path_buf();

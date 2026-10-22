@@ -1317,7 +1317,7 @@ mod http1_listen_parity {
     /// Knobs are set before resolve (the atom's own config) and after it (config a composed trait inherits).
     fn schema(path: &std::path::Path, port: u16, knobs: &[(&str, Json)]) -> OrbitalSchema {
         let schema = with_knobs(orbital_test_support::lower_lolo_file(path).unwrap_or_else(|e| panic!("lower: {e}")), port, knobs);
-        orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+        orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
         let options = orbital_compiler::CompilerOptions::from_env();
         let resolved = orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(path))
             .unwrap_or_else(|e| panic!("resolve: {e}"))
@@ -1812,7 +1812,7 @@ mod machine_parity {
     }
 
     fn resolve(schema: OrbitalSchema, path: Option<&Path>) -> OrbitalSchema {
-        orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+        orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
         let options = orbital_compiler::CompilerOptions::from_env();
         orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, path).unwrap_or_else(|e| panic!("resolve: {e}")).0
     }
@@ -1923,7 +1923,7 @@ mod crypto_vectors {
 
     fn atom(topic: &str, name: &str) -> OrbitalSchema {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/almadar-std/behaviors/lolo").join(topic).join("atoms").join(format!("{name}.lolo"));
-        orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+        orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
         let schema = orbital_test_support::lower_lolo_file(&path).unwrap_or_else(|e| panic!("lower {name}: {e}"));
         let options = orbital_compiler::CompilerOptions::from_env();
         orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path)).unwrap_or_else(|e| panic!("resolve {name}: {e}")).0
@@ -2160,5 +2160,129 @@ mod bytes_parity {
             })
             .collect();
         assert!(failures.is_empty(), "operators diverge from the recording:\n{}", failures.join("\n"));
+    }
+}
+
+#[cfg(unix)]
+mod finite_fs_completion {
+    use orbital_core::runtime::inbound::InboundAnswer;
+    use orbital_core::runtime::os_host::OsAnchors;
+    use orbital_shell_rust::host::{boot::boot_file_with, HostConfig};
+    use serde_json::Value as Json;
+    use std::collections::BTreeSet;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Duration;
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    fn run(name: &str, argv: &[&str]) -> (InboundAnswer, Vec<Json>) {
+        let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/finite-fs-completion").canonicalize().expect("fixtures");
+        let source = fixtures.join(format!("{name}.lolo"));
+        orbital_test_support::installed_core_language(&source);
+        orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
+        let schema = orbital_test_support::lower_lolo_file(&source).expect("lower fixture");
+        let schema = orbital_compiler::phases::lazy::resolve_program_with_path(
+            schema, &orbital_compiler::CompilerOptions::from_env(), Some(&source),
+        ).expect("resolve fixture").0;
+        let artifacts = std::env::temp_dir().join(format!(
+            "almadar-finite-fs-{}-{}-{name}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst),
+        ));
+        std::fs::create_dir(&artifacts).expect("unique artifact directory");
+        let program = artifacts.join("program.orb");
+        std::fs::write(&program, serde_json::to_vec_pretty(&schema).expect("schema JSON")).expect("program artifact");
+        let trace = artifacts.join("dispatches.jsonl");
+        let host = boot_file_with(&program, false, &Default::default(), false, HostConfig {
+            anchors: Some(OsAnchors { start: Some(fixtures.clone()), ..OsAnchors::of_process() }),
+            ..Default::default()
+        }).expect("boot native host");
+        host.set_trace_file(&trace).expect("full dispatch trace");
+        let body = serde_json::json!({ "argv": argv, "cwd": fixtures }).to_string();
+        let answer = host.deliver_inbound_awaiting(
+            "cli-boundary", std::iter::empty::<(&str, &str)>(), &body, Some(Duration::from_secs(30)),
+        );
+        let entries = std::fs::read_to_string(&trace).expect("read full dispatch trace")
+            .lines().map(|line| serde_json::from_str(line).expect("trace JSON")).collect();
+        eprintln!("finite FS {name}: status {}, complete trace {}", answer.status, trace.display());
+        (answer, entries)
+    }
+
+    fn event_dispatches(entries: &[Json], event: &str) -> Vec<u64> {
+        entries.iter().flat_map(|entry| {
+            entry["outcomes"].as_array().expect("trace outcomes").iter()
+                .filter(move |outcome| outcome["event"] == event && outcome["executed"] == true)
+                .map(move |_| entry["dispatchId"].as_u64().expect("dispatch id"))
+        }).collect()
+    }
+
+    fn keyed_finishes(name: &str) {
+        let (answer, entries) = run(name, &[]);
+        assert_eq!(answer.status, 200, "{name}: {}", answer.body);
+        assert_eq!(answer.body, "2105");
+        let answers = event_dispatches(&entries, "ANSWERED");
+        assert_eq!(answers.len(), 2105, "each actual filesystem ask must answer");
+        assert_eq!(answers.iter().collect::<BTreeSet<_>>().len(), 2105, "each keyed completion owns a fresh dispatch budget");
+        let called = event_dispatches(&entries, "CALLED");
+        assert_eq!(called.len(), 1);
+        assert!(answers.iter().all(|id| *id != called[0]));
+        assert!(entries.iter().all(|entry| entry["error"].is_null()));
+        assert!(event_dispatches(&entries, "FAILED").is_empty());
+    }
+
+    fn inline_is_capped(name: &str) {
+        let (answer, entries) = run(name, &[]);
+        assert_eq!(answer.status, 500, "{name}: {}", answer.body);
+        let body: Json = serde_json::from_str(&answer.body).expect("structured cascade refusal");
+        assert_eq!(body["code"], "cascade-cap");
+        assert_eq!(body["cap"], 2000);
+        assert!(event_dispatches(&entries, "FINISHED").is_empty());
+        assert!(!event_dispatches(&entries, "ANSWERED").is_empty(), "the fixture must execute real inline filesystem work before the cap");
+    }
+
+    #[test]
+    fn finite_fs_completion_keyed_stat_finishes_beyond_one_dispatch_budget() { keyed_finishes("stat-keyed"); }
+    #[test]
+    fn finite_fs_completion_keyed_read_file_finishes_beyond_one_dispatch_budget() { keyed_finishes("read-file-keyed"); }
+    #[test]
+    fn finite_fs_completion_keyed_list_dir_finishes_beyond_one_dispatch_budget() { keyed_finishes("list-dir-keyed"); }
+    #[test]
+    fn finite_fs_completion_inline_stat_keeps_the_dispatch_budget() { inline_is_capped("stat-inline"); }
+    #[test]
+    fn finite_fs_completion_inline_read_file_keeps_the_dispatch_budget() { inline_is_capped("read-file-inline"); }
+    #[test]
+    fn finite_fs_completion_inline_list_dir_keeps_the_dispatch_budget() { inline_is_capped("list-dir-inline"); }
+
+    #[test]
+    fn finite_fs_completion_anchor_refusal_preserves_preparation_error_and_inline_route() {
+        let (inline, inline_trace) = run("stat-inline-refused", &["../denied-probe.txt"]);
+        let (keyed, keyed_trace) = run("stat-keyed-refused", &["../denied-probe.txt"]);
+        assert_eq!(inline.status, 500);
+        assert_eq!(keyed.status, 500);
+        assert_eq!(keyed.body, inline.body);
+        assert!(inline.body.starts_with("os/stat:"));
+        assert!(inline.body.contains("stays under it"));
+        for entries in [&inline_trace, &keyed_trace] {
+            assert!(event_dispatches(entries, "ANSWERED").is_empty());
+            let failed = event_dispatches(entries, "FAILED");
+            assert_eq!(failed.len(), 1);
+            assert_eq!(failed, event_dispatches(entries, "CALLED"));
+        }
+    }
+
+    #[test]
+    fn finite_fs_completion_grant_refusal_preserves_error_on_the_existing_failure_route() {
+        let (inline, inline_trace) = run("stat-inline-ungranted", &["denied-probe.txt"]);
+        let (keyed, keyed_trace) = run("stat-keyed-ungranted", &["denied-probe.txt"]);
+        assert_eq!(inline.status, 500);
+        assert_eq!(keyed.status, 500);
+        assert_eq!(keyed.body, inline.body);
+        assert!(inline.body.starts_with("os/stat:"));
+        assert!(inline.body.contains("is not granted for Read"));
+        assert_eq!(event_dispatches(&inline_trace, "FAILED"), event_dispatches(&inline_trace, "CALLED"));
+        let failed = event_dispatches(&keyed_trace, "FAILED");
+        assert_eq!(failed.len(), 1);
+        assert_ne!(failed, event_dispatches(&keyed_trace, "CALLED"));
+        assert!(event_dispatches(&keyed_trace, "ANSWERED").is_empty());
     }
 }

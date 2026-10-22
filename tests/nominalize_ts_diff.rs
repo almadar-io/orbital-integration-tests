@@ -15,11 +15,13 @@ fn fixture_module() -> OirModule {
     entity.fields.push(OirField::new(
         "meta",
         OirType::Struct {
+            additional: None,
             fields: vec![
                 OirField::new("label", OirType::String),
                 OirField::new(
                     "geo",
                     OirType::Struct {
+                        additional: None,
                         fields: vec![
                             OirField::new("lat", OirType::Number),
                             OirField::new("lng", OirType::Number),
@@ -29,6 +31,7 @@ fn fixture_module() -> OirModule {
                 OirField::new(
                     "tags",
                     OirType::array(OirType::Struct {
+                        additional: None,
                         fields: vec![OirField::new("name", OirType::String)],
                     }),
                 ),
@@ -42,12 +45,14 @@ fn fixture_module() -> OirModule {
                 OirField::new(
                     "book",
                     OirType::Struct {
+                        additional: None,
                         fields: vec![OirField::new("title", OirType::String)],
                     },
                 ),
                 OirField::new(
                     "movie",
                     OirType::Struct {
+                        additional: None,
                         fields: vec![OirField::new("runtime", OirType::Number)],
                     },
                 ),

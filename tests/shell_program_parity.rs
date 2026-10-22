@@ -27,7 +27,7 @@ fn programs() -> Vec<PathBuf> {
 }
 
 fn options() -> GenerateOptions {
-    orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+    orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
     let mut compiler = orbital_compiler::CompilerOptions::from_env();
     let start = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test-schemas");
     let user_store = orbital_core::behavior_packages::user_store_dir().unwrap_or_else(|| start.clone());

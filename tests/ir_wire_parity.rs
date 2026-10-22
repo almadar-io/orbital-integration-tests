@@ -31,7 +31,7 @@ fn programs() -> Vec<PathBuf> {
 /// Compiled as `orb compile` would from the program's directory: the installed
 /// behavior packages discovered from there, the `.lolo` lowerer registered.
 fn compile(path: &Path) -> OirModule {
-    orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+    orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
     let start = path.parent().expect("program dir").to_path_buf();
     let user_store = orbital_core::behavior_packages::user_store_dir().unwrap_or_else(|| start.clone());
     let packages = orbital_core::behavior_packages::discover(&start, &user_store).expect("behavior package discovery");

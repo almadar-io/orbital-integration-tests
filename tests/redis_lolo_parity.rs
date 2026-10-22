@@ -178,7 +178,7 @@ mod live {
             }
         }
         let schema: OrbitalSchema = serde_json::from_value(json).expect("schema back from json");
-        orbital_compiler::loader::register_source_lowerer(orbital_test_support::lower_lolo_file);
+        orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
         let options = orbital_compiler::CompilerOptions::from_env();
         orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path))
             .unwrap_or_else(|e| panic!("resolve: {e}"))
