@@ -11,7 +11,6 @@ description = "Cross-crate tests that need the private compiler, the shared nati
 [dev-dependencies]
 orbital-core = { path = "../orbital-core" }
 orbital-compiler = { path = "../orbital-compiler" }
-orbital-verify = { path = "../orbital-verify" }
 orbital-test-support = { path = "../orbital-test-support" }
 orbital-ffi = { path = "../orbital-ffi" }
 orbital-canvas = { path = "../orbital-canvas" }

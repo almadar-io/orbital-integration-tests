@@ -76,7 +76,14 @@ fn ffi_resolved_fixtures_match_a_fresh_resolve() {
     let write = std::env::var("ORB_WRITE_FFI_FIXTURES").as_deref() == Ok("1");
     let mut stale = Vec::new();
     for (name, program) in sources() {
-        let schema = orbital_verify::resolve_schema_json(&program).unwrap_or_else(|e| panic!("resolve {name}: {e}"));
+        let schema = orbital_compiler::phases::parse_json(&program)
+            .unwrap_or_else(|e| panic!("parse {name}: {e}"));
+        let (schema, _) = orbital_compiler::phases::lazy::resolve_program_with_path(
+            schema,
+            &orbital_compiler::CompilerOptions::from_env(),
+            None,
+        )
+        .unwrap_or_else(|e| panic!("resolve {name}: {e}"));
         let fresh = orbital_core::util::canonical_json::to_canonical_string_pretty(&schema).expect("serialize resolved schema");
         let path = dir.join(format!("{name}.json"));
         if write {
@@ -93,7 +100,13 @@ fn ffi_resolved_fixtures_match_a_fresh_resolve() {
 fn two_resolves_of_one_program_serialize_the_same_bytes() {
     let program = two_orbital_program("ChoreCRUD");
     let text = || {
-        let schema = orbital_verify::resolve_schema_json(&program).expect("resolve");
+        let schema = orbital_compiler::phases::parse_json(&program).expect("parse");
+        let (schema, _) = orbital_compiler::phases::lazy::resolve_program_with_path(
+            schema,
+            &orbital_compiler::CompilerOptions::from_env(),
+            None,
+        )
+        .expect("resolve");
         orbital_core::util::canonical_json::to_canonical_string_pretty(&schema).expect("serialize")
     };
     assert_eq!(text(), text());
