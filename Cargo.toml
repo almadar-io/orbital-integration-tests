@@ -6,12 +6,16 @@ license.workspace = true
 publish = false
 description = "Cross-crate tests that need the private compiler, the shared native-conformance suite or the template repos"
 
+[lib]
+name = "orbital_test_support"
+
 [dependencies]
+orbital-core = { path = "../orbital-core" }
+orbital-lolo = { path = "../orbital-lolo" }
+serde_json.workspace = true
 
 [dev-dependencies]
-orbital-core = { path = "../orbital-core" }
 orbital-compiler = { path = "../orbital-compiler" }
-orbital-test-support = { path = "../orbital-test-support" }
 orbital-ffi = { path = "../orbital-ffi" }
 orbital-canvas = { path = "../orbital-canvas" }
 orbital-shell-typescript = { path = "../orbital-shell-typescript" }
@@ -20,6 +24,5 @@ orbital-shell-rust = { path = "../orbital-shell-rust" }
 orbital-client-dioxus = { path = "../orbital-shell-rust/renderers/dioxus", features = ["native"] }
 orbital-shell-ios = { path = "../orbital-shell-ios" }
 orbital-shell-android = { path = "../orbital-shell-android" }
-orbital-shell-chrome = { path = "../orbital-shell-chrome" }
-serde_json.workspace = true
+orbital-shell-chrome = { path = "../orbital-shell-typescript/renderers/chrome/native" }
 chrono.workspace = true
