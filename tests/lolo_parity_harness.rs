@@ -1397,7 +1397,7 @@ mod http1_listen_parity {
 
         fn respond(&self, request: &Json, status: u16, headers: &[(&str, &str)], body: &str) {
             let headers: Vec<Json> = headers.iter().map(|(n, v)| json!({ "name": n, "value": v })).collect();
-            self.fire("Http1", "RESPOND", json!({ "requestId": request["requestId"], "status": status, "headers": headers, "body": b64(body.as_bytes()) }));
+            self.fire("Http1", "SEND_RESPONSE", json!({ "requestId": request["requestId"], "status": status, "headers": headers, "body": b64(body.as_bytes()) }));
         }
 
         fn finish(self) {
