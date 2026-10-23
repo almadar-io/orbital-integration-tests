@@ -19,7 +19,6 @@ orbital-compiler = { path = "../orbital-compiler" }
 orbital-ffi = { path = "../orbital-ffi" }
 orbital-canvas = { path = "../orbital-canvas" }
 orbital-shell-typescript = { path = "../orbital-shell-typescript" }
-orbital-shell-python = { path = "../orbital-shell-python" }
 orbital-shell-rust = { path = "../orbital-shell-rust" }
 orbital-client-dioxus = { path = "../orbital-shell-rust/renderers/dioxus", features = ["native"] }
 orbital-shell-ios = { path = "../orbital-shell-ios" }

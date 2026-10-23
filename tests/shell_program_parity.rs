@@ -49,13 +49,7 @@ fn in_process(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
         "typescript" => {
             let backend = TypeScriptBackend { browser_schema: Some(resolved(path, &options)), ..TypeScriptBackend::default() };
             generate_from_file_with_source(path, path, out, &express_shell(), &backend, &options).map_err(e)?;
-            orbital_shell_typescript::shell_program::copy_locales(path, out).expect("copy locales");
-        }
-        "python" => {
-            generate_from_file_with_source(path, path, out, &orbital_shell_python::PythonShell::new(), &orbital_shell_python::PythonBackend::new(), &options).map_err(e)?;
-        }
-        "rust" => {
-            generate_from_file_with_source(path, path, out, &orbital_shell_rust::RustShell::new(), &orbital_shell_rust::RustBackend::new(), &options).map_err(e)?;
+            orbital_core::project::copy_locales(path, out).expect("copy locales");
         }
         "android" => {
             orbital_shell_android::require_renderer_pack().map_err(|err| err.to_string())?;
@@ -88,8 +82,6 @@ fn in_process(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
 fn program(shell: &str) -> Box<dyn ShellProgram> {
     match shell {
         "typescript" => Box::new(TypeScriptProgram),
-        "python" => Box::new(orbital_shell_python::shell_program::PythonProgram),
-        "rust" => Box::new(orbital_shell_rust::shell_program::RustProgram),
         "android" => Box::new(orbital_shell_android::shell_program::AndroidProgram),
         "ios" => Box::new(orbital_shell_ios::shell_program::IosProgram),
         "chrome" => Box::new(orbital_shell_chrome::shell_program::ChromeProgram),
@@ -97,7 +89,7 @@ fn program(shell: &str) -> Box<dyn ShellProgram> {
     }
 }
 
-const SHELLS: &[&str] = &["typescript", "python", "rust", "android", "ios", "chrome"];
+const SHELLS: &[&str] = &["typescript", "android", "ios", "chrome"];
 
 fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
     let options = options();
@@ -108,6 +100,7 @@ fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
             ir_version: IR_VERSION,
             module: module.clone(),
             resolved: resolved.clone(),
+            served: None,
             source_path: Some(path.to_path_buf()),
             write: orbital_core::project::WriteOptions {
                 copy_template: options.copy_template,
@@ -116,12 +109,7 @@ fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
                 mode: options.mode,
                 service_runtimes: options.compiler.service_runtimes.clone(),
             },
-            // The linked Python path builds the generated host; the program defaults to `host=auto` (the kernel host).
-            options: if shell == "python" {
-                BTreeMap::from([("host".to_string(), serde_json::Value::String("generated".to_string()))])
-            } else {
-                BTreeMap::new()
-            },
+            options: BTreeMap::new(),
         };
         let wire: GenerateRequest = serde_json::from_str(&serde_json::to_string(&request).unwrap()).unwrap();
         match handle(program.as_ref(), &wire, out) {
