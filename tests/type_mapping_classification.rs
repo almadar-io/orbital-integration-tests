@@ -70,6 +70,8 @@ fn table() -> Vec<Row> {
         // `event`, `eventaddress`, which lower to `String`): the explicit-cast rule is a
         // language-level check, not a rendered type, so no shell loses a value.
         Row { name: "CallKey", ty: OirType::CallKey, ts: F, kotlin: F, swift: F },
+        // A field reference is the field's name, a string at rest, like `callkey`.
+        Row { name: "FieldRef", ty: OirType::FieldRef { record: Box::new(OirType::reference("@entity")), value: None }, ts: F, kotlin: F, swift: F },
         // TS Declared `Record<string, FieldValue | undefined>` is the shapeless
         // record — Lossy; Rust's `serde_json::Value` is the one faithful json.
         Row { name: "Json", ty: OirType::Json, ts: L, kotlin: L, swift: L },
@@ -148,7 +150,7 @@ fn every_variant_matches_the_enumeration_table_per_shell() {
 #[test]
 fn per_shell_counts_match_the_table_summary() {
     let rows = table();
-    assert_eq!(rows.len(), 27, "the table enumerates 27 OirType variants");
+    assert_eq!(rows.len(), 28, "the table enumerates 28 OirType variants");
     let count = |f: fn(&Row) -> TypeMappingClass| {
         let mut counts = (0, 0, 0);
         for row in &rows {
@@ -162,9 +164,9 @@ fn per_shell_counts_match_the_table_summary() {
     };
     // (faithful, widening, lossy) per the Phase-3D-amended summary (TypeRef
     // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust).
-    assert_eq!(count(|r| r.ts), (15, 11, 1), "TypeScript");
-    assert_eq!(count(|r| r.kotlin), (12, 13, 2), "Kotlin");
-    assert_eq!(count(|r| r.swift), (12, 13, 2), "Swift");
+    assert_eq!(count(|r| r.ts), (16, 11, 1), "TypeScript");
+    assert_eq!(count(|r| r.kotlin), (13, 13, 2), "Kotlin");
+    assert_eq!(count(|r| r.swift), (13, 13, 2), "Swift");
 }
 
 #[test]

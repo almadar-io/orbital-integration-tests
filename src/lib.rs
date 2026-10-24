@@ -218,6 +218,24 @@ pub fn link_installed_language(project: &Path, start: &Path) {
         .expect("write canonical-operators.json");
 }
 
+/// Links every topic directory of the installed `@almadar/std`'s `.lolo` tree (found by walking from `start`) into
+/// `<std_stub>/behaviors/lolo/<topic>`, beside any topic the test already wrote there, so `orb <command>` in a test
+/// project finds std's command programs (`validate`, `lower`, ...) and everything they compose.
+#[cfg(unix)]
+pub fn link_installed_std_programs(std_stub: &Path, start: &Path) {
+    let installed = installed_package("almadar-std", start);
+    let source = installed
+        .lolo_source
+        .unwrap_or_else(|| panic!("the installed @almadar/std at {} carries no .lolo tree", installed.root.display()));
+    let lolo = std_stub.join("behaviors/lolo");
+    fs::create_dir_all(&lolo).expect("create the stub's .lolo tree");
+    for entry in fs::read_dir(&source).expect("read the installed std's .lolo tree").flatten() {
+        let link = lolo.join(entry.file_name());
+        assert!(!link.exists(), "the test's own topic {} collides with an installed std topic", link.display());
+        std::os::unix::fs::symlink(entry.path(), &link).expect("link an installed std topic");
+    }
+}
+
 /// Symlinks the installed `@almadar/core` (found by walking from `start`) into
 /// `<project>/node_modules/@almadar/core`, so a spawned `orb` running with
 /// `project` as its cwd resolves the language data.
