@@ -10,7 +10,7 @@
 //! PatternNode codegen is deferred, riding on named_types), and Phase 3D
 //! flipped `TypeRef` to Faithful in Kotlin/Swift/Python/Rust (every shell
 //! hoists the `named_types` declaration and references it by bare name).
-//! Summary with Bytes and CallKey: TS 15/11/1, Kotlin 11/14/2, Swift 12/13/2,
+//! Summary with Bytes and CallKey: TS 15/11/1, Kotlin 12/13/2, Swift 12/13/2,
 //! Python 14/11/2, Rust 13/12/2 (faithful/widening/lossy). Classification is
 //! metadata only — this test exercises no rendering path and pins no emitted
 //! bytes.
@@ -40,7 +40,7 @@ fn table() -> Vec<Row> {
     vec![
         Row { name: "String", ty: OirType::String, ts: F, kotlin: F, swift: F },
         Row { name: "Number", ty: OirType::Number, ts: F, kotlin: W, swift: W },
-        Row { name: "Integer", ty: OirType::Integer, ts: W, kotlin: W, swift: F },
+        Row { name: "Integer", ty: OirType::Integer, ts: W, kotlin: F, swift: F },
         Row { name: "Boolean", ty: OirType::Boolean, ts: F, kotlin: F, swift: F },
         // Python is the one faithful `datetime` arm; every other target
         // carries dates as strings (TS `string | number` — honest about the
@@ -163,7 +163,7 @@ fn per_shell_counts_match_the_table_summary() {
     // (faithful, widening, lossy) per the Phase-3D-amended summary (TypeRef
     // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust).
     assert_eq!(count(|r| r.ts), (15, 11, 1), "TypeScript");
-    assert_eq!(count(|r| r.kotlin), (11, 14, 2), "Kotlin");
+    assert_eq!(count(|r| r.kotlin), (12, 13, 2), "Kotlin");
     assert_eq!(count(|r| r.swift), (12, 13, 2), "Swift");
 }
 

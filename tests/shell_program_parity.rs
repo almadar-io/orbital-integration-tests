@@ -105,7 +105,6 @@ fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
             write: orbital_core::project::WriteOptions {
                 copy_template: options.copy_template,
                 clean: options.clean,
-                verbose: false,
                 mode: options.mode,
                 service_runtimes: options.compiler.service_runtimes.clone(),
             },
