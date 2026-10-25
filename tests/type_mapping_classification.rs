@@ -40,6 +40,7 @@ fn table() -> Vec<Row> {
     vec![
         Row { name: "String", ty: OirType::String, ts: F, kotlin: F, swift: F },
         Row { name: "Number", ty: OirType::Number, ts: F, kotlin: W, swift: W },
+        Row { name: "Instant", ty: OirType::Instant, ts: F, kotlin: W, swift: W },
         Row { name: "Integer", ty: OirType::Integer, ts: W, kotlin: F, swift: F },
         Row { name: "Boolean", ty: OirType::Boolean, ts: F, kotlin: F, swift: F },
         // Python is the one faithful `datetime` arm; every other target
