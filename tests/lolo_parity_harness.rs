@@ -2193,7 +2193,7 @@ mod finite_fs_completion {
         let program = artifacts.join("program.orb");
         std::fs::write(&program, serde_json::to_vec_pretty(&schema).expect("schema JSON")).expect("program artifact");
         let trace = artifacts.join("dispatches.jsonl");
-        let host = boot_file_with(&program, false, &Default::default(), false, HostConfig {
+        let host = boot_file_with(&program, &Default::default(), false, HostConfig {
             anchors: Some(OsAnchors { start: Some(fixtures.clone()), ..OsAnchors::of_process() }),
             ..Default::default()
         }).expect("boot native host");
