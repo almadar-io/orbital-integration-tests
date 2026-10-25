@@ -1365,7 +1365,7 @@ mod http1_listen_parity {
             let errors: Arc<Mutex<Vec<String>>> = Arc::default();
             let on_done: Arc<CompletionDone> = {
                 let (events, errors) = (events.clone(), errors.clone());
-                Arc::new(move |_: &CallSite, event: &str, result: Result<DispatchOutcomes, DispatchError>| match result {
+                Arc::new(move |_: &CallSite, event: &str, _: Option<&str>, result: Result<DispatchOutcomes, DispatchError>| match result {
                     Ok(outcomes) => events.lock().expect("events").extend(emits(&outcomes)),
                     Err(error) => errors.lock().expect("errors").push(format!("{event}: {error}")),
                 })
