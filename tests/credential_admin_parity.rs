@@ -246,7 +246,7 @@ fn control_the_catalog_is_not_widened_by_a_service_the_declared_order_leaves_out
 
 /// The shared `kv-trace.json` (the Node and browser kv ports replay it too) through the native kv host.
 mod kv_trace_parity {
-    use orbital_core::os::{OsError, OsOp};
+    use orbital_core::runtime::os::{OsError, OsOp};
     use orbital_core::runtime::kv_host::{json_text, KvStores};
     use orbital_core::runtime::os_host::{answer_os, KvMode, OsGrants, OsHandles, OsHost};
     use orbital_core::runtime::resumable::{CallSite, IoAnswer, IoRequest};
