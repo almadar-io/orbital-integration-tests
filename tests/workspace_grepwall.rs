@@ -292,13 +292,14 @@ const EXEC_RULES_PROVEN_ELSEWHERE: &[(&str, &str)] = &[
 /// EXEC rules orbital-core does not cite yet (P-014 Phase 3). Shrinks only: citing one makes this gate
 /// fail until its entry is deleted.
 const EXEC_RULES_PENDING: &[&str] = &[
-    "EXEC-ENDPOINT-5", "EXEC-ENDPOINT-6", "EXEC-SEED-1", "EXEC-SEED-2", "EXEC-SEED-4", "EXEC-QUEUE-1", "EXEC-QUEUE-11",
-    "EXEC-DIST-1", "EXEC-DIST-3", "EXEC-DIST-4",
-    "EXEC-TICK-3", "EXEC-TICK-4", "EXEC-RENDER-2", "EXEC-RENDER-5", "EXEC-RENDER-6", "EXEC-DATA-3", "EXEC-HTTP-5",
-    "EXEC-HTTP-6", "EXEC-HTTP-7", "EXEC-INBOUND-1", "EXEC-EVAL-2", "EXEC-EVAL-5", "EXEC-EVAL-7", "EXEC-EVAL-8",
-    "EXEC-LANG-1", "EXEC-LANG-2", "EXEC-CONC-2", "EXEC-CONC-3", "EXEC-CONC-5", "EXEC-CONC-6",
-    // Not yet mapped to tests (suffixed and two-word ids the first map missed).
-    "EXEC-ENDPOINT-3", "EXEC-EVAL-1a", "EXEC-EVAL-3a", "EXEC-EVENT-PAYLOAD-1", "EXEC-CONC-0a",
+    // Not observable in the kernel; each needs a test where it lives.
+    "EXEC-ENDPOINT-6", // page `access`: shell-web PageAccessHost and the std verification atoms
+    "EXEC-RENDER-5",   // toast slot UI: the web renderer
+    "EXEC-EVAL-5",     // static argument typing: `orb validate`
+    "EXEC-LANG-1",     // brackets are data: the orbital-lolo parser
+    "EXEC-CONC-3",     // keyed completions on real host threads: the native os host
+    "EXEC-CONC-6",     // os/spawn, os/wait, os/kill and std-supervisor: the native os host and std
+    "EXEC-CONC-0a",    // the explicit-control model; primitives 2 and 3 are not implemented
 ];
 
 /// Every `**EXEC-<FAMILY>-<N> - …**` rule heading in the execution-semantics spec.
