@@ -25,17 +25,17 @@ fn fixture_module() -> OirModule {
                         fields: vec![
                             OirField::new("lat", OirType::Number),
                             OirField::new("lng", OirType::Number),
-                        ],
+                        ].into(),
                     },
                 ),
                 OirField::new(
                     "tags",
                     OirType::array(OirType::Struct {
                         additional: None,
-                        fields: vec![OirField::new("name", OirType::String)],
+                        fields: vec![OirField::new("name", OirType::String)].into(),
                     }),
                 ),
-            ],
+            ].into(),
         },
     ));
     entity.fields.push(OirField::new(
@@ -46,17 +46,17 @@ fn fixture_module() -> OirModule {
                     "book",
                     OirType::Struct {
                         additional: None,
-                        fields: vec![OirField::new("title", OirType::String)],
+                        fields: vec![OirField::new("title", OirType::String)].into(),
                     },
                 ),
                 OirField::new(
                     "movie",
                     OirType::Struct {
                         additional: None,
-                        fields: vec![OirField::new("runtime", OirType::Number)],
+                        fields: vec![OirField::new("runtime", OirType::Number)].into(),
                     },
                 ),
-            ],
+            ].into(),
         },
     ));
     let mut module = OirModule::new("NominalizeDiffApp", "1.0.0");
