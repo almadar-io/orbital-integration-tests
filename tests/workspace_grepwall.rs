@@ -66,16 +66,14 @@ fn registry_json_embedded_once() {
     // `registry.json` embed (the old per-shell copies) makes the counts diverge.
     assert_eq!(
         count(&src, "registry.json\")"),
-        count(&src, "patterns-registry.json\")")
-            + count(&src, "services-registry.json\")"),
+        count(&src, "patterns-registry.json\")") + count(&src, "services-registry.json\")"),
         "Pillar-F1 gate: a standalone registry.json embed is back — the pattern registry \
          must read the single patterns-registry.json (shared with the validator's embedded view)."
     );
 }
 
-/// Pillar F3 — `EFFECT_OPERATORS` is defined once (the sexpr-context base);
-/// `effect/utils` DERIVES the effect-position superset from it (`effect_operators()`)
-/// instead of re-listing the core effects. And the canonical case converters live
+/// Pillar F3 — the effect operators are read from the operator table's `effect` category (no hand list);
+/// `effect/utils` DERIVES the effect-position superset from it (`effect_operators()`). And the canonical case converters live
 /// uniquely in `orbital_core::str_utils` — the per-crate copies were deleted or now
 /// delegate to them (so a core effect / a casing rule can't drift between copies).
 #[test]
@@ -83,9 +81,9 @@ fn effect_operators_and_casing_single_home() {
     let src = all_workspace_src();
     assert_eq!(
         count(&src, "pub const EFFECT_OPERATORS"),
-        1,
-        "Pillar-F3 gate: EFFECT_OPERATORS must be defined exactly ONCE (sexpr::operators); \
-         the effect/utils superset must derive it via effect_operators(), not re-list it."
+        0,
+        "Pillar-F3 gate: the effect operators are the table's `effect` category (sexpr::operators::effect_category_operators); \
+         a hand-written EFFECT_OPERATORS list is back."
     );
     for canon in [
         "pub fn to_snake_case(",
@@ -186,8 +184,14 @@ fn workspace_src_no_str_utils_no_tests() -> String {
 /// owner — regardless of whether they are `pub`, `pub(crate)`, or private.
 #[test]
 fn no_str_utils_helper_forks() {
-    let owner = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(STR_UTILS_OWNER);
-    assert!(owner.is_file(), "the canonical owner moved: {} does not exist", owner.display());
+    let owner = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(STR_UTILS_OWNER);
+    assert!(
+        owner.is_file(),
+        "the canonical owner moved: {} does not exist",
+        owner.display()
+    );
     let src = workspace_src_no_str_utils_no_tests();
     for banned in [
         "fn to_snake_case(",
@@ -238,7 +242,11 @@ fn template_sources() -> Vec<(String, String)> {
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut out = Vec::new();
-    for entry in fs::read_dir(root.join("crates")).into_iter().flatten().flatten() {
+    for entry in fs::read_dir(root.join("crates"))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
         for dir in ["templates"] {
             let template = entry.path().join(dir);
             if template.is_dir() {
@@ -257,18 +265,36 @@ fn shell_templates_have_no_unknown_or_any() {
     assert!(!templates.is_empty(), "no shell templates found");
     let hits: Vec<String> = templates
         .iter()
-        .flat_map(|(path, text)| ts_escape_hatch_uses(text).into_iter().map(move |u| format!("{path}: {u}")))
+        .flat_map(|(path, text)| {
+            ts_escape_hatch_uses(text)
+                .into_iter()
+                .map(move |u| format!("{path}: {u}"))
+        })
         .collect();
-    assert!(hits.is_empty(), "shell templates use `unknown`/`any` as a type ({} hit(s)):\n{}", hits.len(), hits.join("\n"));
+    assert!(
+        hits.is_empty(),
+        "shell templates use `unknown`/`any` as a type ({} hit(s)):\n{}",
+        hits.len(),
+        hits.join("\n")
+    );
 }
 
 /// EXEC rules no unit test can assert: ownership and design rules, or ruled but not built.
 const EXEC_DESIGN_RULES: &[(&str, &str)] = &[
     ("EXEC-BOUND-1", "ownership order is a design rule"),
-    ("EXEC-BOUND-2", "a host deciding nothing is checked per mechanism, not by one test"),
+    (
+        "EXEC-BOUND-2",
+        "a host deciding nothing is checked per mechanism, not by one test",
+    ),
     ("EXEC-BOUND-3", "nothing implicit is a design rule"),
-    ("EXEC-BOUND-4", "ownership of a new mechanism is a design rule"),
-    ("EXEC-BOUND-5", "one implementation is enforced by the single-owner gates above"),
+    (
+        "EXEC-BOUND-4",
+        "ownership of a new mechanism is a design rule",
+    ),
+    (
+        "EXEC-BOUND-5",
+        "one implementation is enforced by the single-owner gates above",
+    ),
     ("EXEC-EVAL-3", "design rule"),
     ("EXEC-CONC-7", "the guest kernel part is ruled, not built"),
     ("EXEC-PERF-1", "ruled, not built (P-003)"),
@@ -277,16 +303,46 @@ const EXEC_DESIGN_RULES: &[(&str, &str)] = &[
 
 /// EXEC rules proven outside orbital-core: the test that proves each.
 const EXEC_RULES_PROVEN_ELSEWHERE: &[(&str, &str)] = &[
-    ("EXEC-ENDPOINT-2", "orbital-compiler phases/validation/ui/page.rs"),
-    ("EXEC-ENDPOINT-4", "orbital-compiler phases/validation/ui/page.rs"),
-    ("EXEC-STORE-1", "std spec/store/firestore-twin.replay.goldens.json"),
-    ("EXEC-STORE-2", "std spec/store/postgres-twin.replay.goldens.json"),
-    ("EXEC-STORE-3", "std spec/store/couchdb-twin.replay.goldens.json"),
-    ("EXEC-LANG-3", "std spec/cli/lint-user-identity.replay.goldens.json"),
-    ("EXEC-SEED-5", "host twin: needs a host test outside orbital-core"),
-    ("EXEC-CONC-8", "host twin: the JS host's lane differs (defect list)"),
-    ("EXEC-QUEUE-4", "std spec/codec/semver-request-id.replay.goldens.json"),
-    ("EXEC-SEED-6", "orbital-shell-typescript hosts/node/test/runtime-parity/kernel-engine.test.ts"),
+    (
+        "EXEC-ENDPOINT-2",
+        "orbital-compiler phases/validation/ui/page.rs",
+    ),
+    (
+        "EXEC-ENDPOINT-4",
+        "orbital-compiler phases/validation/ui/page.rs",
+    ),
+    (
+        "EXEC-STORE-1",
+        "std spec/store/firestore-twin.replay.goldens.json",
+    ),
+    (
+        "EXEC-STORE-2",
+        "std spec/store/postgres-twin.replay.goldens.json",
+    ),
+    (
+        "EXEC-STORE-3",
+        "std spec/store/couchdb-twin.replay.goldens.json",
+    ),
+    (
+        "EXEC-LANG-3",
+        "std spec/cli/lint-user-identity.replay.goldens.json",
+    ),
+    (
+        "EXEC-SEED-5",
+        "host twin: needs a host test outside orbital-core",
+    ),
+    (
+        "EXEC-CONC-8",
+        "host twin: the JS host's lane differs (defect list)",
+    ),
+    (
+        "EXEC-QUEUE-4",
+        "std spec/codec/semver-request-id.replay.goldens.json",
+    ),
+    (
+        "EXEC-SEED-6",
+        "orbital-shell-typescript hosts/node/test/runtime-parity/kernel-engine.test.ts",
+    ),
 ];
 
 /// EXEC rules orbital-core does not cite yet (P-014 Phase 3). Shrinks only: citing one makes this gate
@@ -304,7 +360,8 @@ const EXEC_RULES_PENDING: &[&str] = &[
 
 /// Every `**EXEC-<FAMILY>-<N> - …**` rule heading in the execution-semantics spec.
 fn exec_rule_ids() -> Vec<String> {
-    let spec = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../docs/Almadar_Execution_Semantics.md");
+    let spec =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../docs/Almadar_Execution_Semantics.md");
     let text = fs::read_to_string(&spec).unwrap_or_else(|e| panic!("read {}: {e}", spec.display()));
     text.lines()
         .filter_map(|line| line.strip_prefix("**EXEC-"))
@@ -315,12 +372,20 @@ fn exec_rule_ids() -> Vec<String> {
 /// orbital-core's test code: files under `tests/`, `tests.rs`/`*_tests.rs`, and what follows a file's first `#[cfg(test)]`.
 fn core_test_code() -> String {
     fn walk(dir: &Path, out: &mut String) {
-        for path in fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()) {
+        for path in fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+        {
             if path.is_dir() {
                 walk(&path, out);
                 continue;
             }
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
             if !name.ends_with(".rs") {
                 continue;
             }
@@ -328,12 +393,19 @@ fn core_test_code() -> String {
             let in_tests = path.components().any(|c| c.as_os_str() == "tests")
                 || name == "tests.rs"
                 || name.ends_with("_tests.rs");
-            out.push_str(if in_tests { &text[..] } else { text.find("#[cfg(test)]").map_or("", |i| &text[i..]) });
+            out.push_str(if in_tests {
+                &text[..]
+            } else {
+                text.find("#[cfg(test)]").map_or("", |i| &text[i..])
+            });
             out.push('\n');
         }
     }
     let mut out = String::new();
-    walk(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../orbital-core/crates"), &mut out);
+    walk(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../orbital-core/crates"),
+        &mut out,
+    );
     out
 }
 
@@ -350,18 +422,40 @@ fn cites(test_code: &str, id: &str) -> bool {
 #[test]
 fn every_exec_rule_is_cited_by_a_core_test_or_listed_with_its_reason() {
     let rules = exec_rule_ids();
-    assert!(rules.len() >= 100, "the spec's rule headings were not found ({} read)", rules.len());
+    assert!(
+        rules.len() >= 100,
+        "the spec's rule headings were not found ({} read)",
+        rules.len()
+    );
     let test_code = core_test_code();
-    let cited: std::collections::BTreeSet<&str> =
-        rules.iter().map(String::as_str).filter(|id| cites(&test_code, id)).collect();
+    let cited: std::collections::BTreeSet<&str> = rules
+        .iter()
+        .map(String::as_str)
+        .filter(|id| cites(&test_code, id))
+        .collect();
     let listed = |id: &str| {
-        EXEC_DESIGN_RULES.iter().chain(EXEC_RULES_PROVEN_ELSEWHERE).any(|(r, _)| *r == id)
+        EXEC_DESIGN_RULES
+            .iter()
+            .chain(EXEC_RULES_PROVEN_ELSEWHERE)
+            .any(|(r, _)| *r == id)
             || EXEC_RULES_PENDING.contains(&id)
     };
-    let uncovered: Vec<&String> = rules.iter().filter(|r| !cited.contains(r.as_str()) && !listed(r)).collect();
-    assert!(uncovered.is_empty(), "EXEC rules with no citing orbital-core test and no listed reason: {uncovered:?}");
-    let stale: Vec<&&str> = EXEC_RULES_PENDING.iter().filter(|r| cited.contains(**r)).collect();
-    assert!(stale.is_empty(), "now cited, delete from EXEC_RULES_PENDING: {stale:?}");
+    let uncovered: Vec<&String> = rules
+        .iter()
+        .filter(|r| !cited.contains(r.as_str()) && !listed(r))
+        .collect();
+    assert!(
+        uncovered.is_empty(),
+        "EXEC rules with no citing orbital-core test and no listed reason: {uncovered:?}"
+    );
+    let stale: Vec<&&str> = EXEC_RULES_PENDING
+        .iter()
+        .filter(|r| cited.contains(**r))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "now cited, delete from EXEC_RULES_PENDING: {stale:?}"
+    );
     let unknown: Vec<&str> = EXEC_DESIGN_RULES
         .iter()
         .chain(EXEC_RULES_PROVEN_ELSEWHERE)
@@ -369,7 +463,10 @@ fn every_exec_rule_is_cited_by_a_core_test_or_listed_with_its_reason() {
         .chain(EXEC_RULES_PENDING.iter().copied())
         .filter(|r| !rules.iter().any(|x| x == r))
         .collect();
-    assert!(unknown.is_empty(), "listed rules the spec no longer has: {unknown:?}");
+    assert!(
+        unknown.is_empty(),
+        "listed rules the spec no longer has: {unknown:?}"
+    );
     let mut seen = std::collections::BTreeSet::new();
     let twice: Vec<&str> = EXEC_DESIGN_RULES
         .iter()
@@ -378,5 +475,8 @@ fn every_exec_rule_is_cited_by_a_core_test_or_listed_with_its_reason() {
         .chain(EXEC_RULES_PENDING.iter().copied())
         .filter(|r| !seen.insert(*r))
         .collect();
-    assert!(twice.is_empty(), "a rule is listed more than once: {twice:?}");
+    assert!(
+        twice.is_empty(),
+        "a rule is listed more than once: {twice:?}"
+    );
 }
