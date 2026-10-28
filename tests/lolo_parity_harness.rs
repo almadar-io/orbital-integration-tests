@@ -58,7 +58,7 @@ mod session_regressions {
 
     fn schema(request: Json) -> OrbitalSchema {
         serde_json::from_value(json!({
-        "name": "Harness",
+        "name": "Harness", "typeContractVersion": 1,
         "egress": ["https://api.example.test", "https://token.example.test"],
         "orbitals": [{
             "name": "HarnessOrbital",
@@ -1013,7 +1013,7 @@ fn credential_step(action: &str, connected: bool) -> serde_json::Value {
 fn steps_schema() -> OrbitalSchema {
     let effect = |name: &str| json!([[name, "TOKEN", { "emit": { "success": "RESULT", "failure": "FAILED" } }]]);
     serde_json::from_value(json!({
-        "name": "Harness", "egress": [],
+        "name": "Harness", "typeContractVersion": 1, "egress": [],
         "orbitals": [{ "name": "O", "entity": { "name": "E", "persistence": "runtime", "fields": [{ "name": "id", "type": "string" }] },
             "traits": [{ "name": "Harness", "linkedEntity": "E", "stateMachine": {
                 "states": [{ "name": "idle", "isInitial": true }],
