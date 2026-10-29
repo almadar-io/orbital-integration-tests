@@ -31,6 +31,7 @@ const VALIDATION_ONLY: [&str; 4] = [
 ];
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert!(all.len() >= 31, "expected the recorded youtube cases, found {}", all.len());
@@ -46,6 +47,7 @@ const NO_ITEMS: &str = "search-no-items-field";
 const UNREADABLE: &str = "search-unreadable-ok-reply";
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn an_unreadable_ok_reply_fails_explicitly_d15() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, UNREADABLE);
     assert_eq!(fixture["outcome"], serde_json::json!({"ok": true, "data": null}), "the provider's recorded fallback");
@@ -58,6 +60,7 @@ fn an_unreadable_ok_reply_fails_explicitly_d15() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_search_reply_without_items_is_an_empty_list_an_approved_divergence() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, NO_ITEMS);
     assert_eq!(fixture["outcome"]["data"], serde_json::Value::Null, "the provider's recorded null");
@@ -72,12 +75,14 @@ fn the_cases_the_atom_cannot_express_are_registry_validation_errors_that_send_no
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     lolo_parity::drifted_url_control(&SPEC, "get-video", "id=vid1", "id=vid9");
 }
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     lolo_parity::drifted_outcome_control(&SPEC, "get-video", "title", serde_json::json!("Other"));
 }

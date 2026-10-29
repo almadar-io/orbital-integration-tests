@@ -22,9 +22,7 @@ use std::time::Duration;
 
 use orbital_core::effects::Effect;
 use orbital_core::ir::PageFactField;
-use orbital_core::oauth::ask::{OAuthAsk, OAuthReply};
-use orbital_core::oauth::store::MemoryOAuthStore;
-use orbital_core::runtime::http_request::{BeaconOutcome, CredentialSlot, SecretScope};
+use orbital_core::runtime::http_wire::{CredentialSlot, SecretScope};
 use orbital_core::runtime::http_service::{
     credential_status_connected, HttpRequest, HttpResponse, SecretSource, TransportError,
 };
@@ -265,8 +263,6 @@ struct FixtureHost {
     credentials: Mutex<BTreeMap<(String, Option<String>), CredentialState>>,
     /// Every durable rotation the atom asked for, in order: `(credential, principal)`.
     rotations: Mutex<Vec<(String, Option<String>)>>,
-    /// The OAuth state an `oauth-client` flow keeps (pending grants, connections, metadata), on the fixture clock.
-    oauth: MemoryOAuthStore,
 }
 
 impl FixtureHost {
@@ -276,17 +272,10 @@ impl FixtureHost {
             .map(|now| now as f64)
             .or_else(|| fixture_now(fixture));
         let clock = Arc::new(Mutex::new(clock));
-        let oauth_clock = clock.clone();
         let host = Arc::new(Self {
             clock,
             credentials: Mutex::new(BTreeMap::new()),
             rotations: Mutex::new(Vec::new()),
-            oauth: MemoryOAuthStore::new(move || {
-                oauth_clock
-                    .lock()
-                    .expect("fixture clock")
-                    .unwrap_or_else(orbital_core::time_util::now_millis_f64) as i64
-            }),
         });
         let now = host.now();
         let mut credentials = host.credentials.lock().expect("fixture credentials");
@@ -385,10 +374,6 @@ impl SecretSource for FixtureHost {
             entry.minted = CredentialValue::new(Some(value.to_string()), Some(ttl_ms), now);
         });
         Ok(())
-    }
-
-    fn oauth_of(&self, ask: &OAuthAsk, principal: Option<&str>) -> Result<OAuthReply, String> {
-        self.oauth.answer(ask, principal)
     }
 
     fn rotate_secret_of(
@@ -780,18 +765,6 @@ impl<'a> Replay<'a> {
             }
             IoRequest::CredentialForget { name, principal } => {
                 IoAnswer::CredentialForget(self.host.forget_of(name, principal.as_deref()))
-            }
-            IoRequest::OAuth { ask, principal } => {
-                IoAnswer::OAuth(self.host.oauth_of(ask, principal.as_deref()))
-            }
-            IoRequest::HttpBeacon { request, .. } if self.beacon_queue => {
-                self.sent.lock().expect("sent").push(request.clone());
-                IoAnswer::HttpBeacon(Ok(BeaconOutcome::Queued))
-            }
-            IoRequest::HttpBeacon { request, .. } => {
-                IoAnswer::HttpBeacon(self.answer(request).map(|reply| BeaconOutcome::Fetched {
-                    status: reply.status,
-                }))
             }
             IoRequest::PageFacts { fields } => IoAnswer::PageFacts(Ok(self.page_facts(fields))),
             IoRequest::Random { bytes } => {

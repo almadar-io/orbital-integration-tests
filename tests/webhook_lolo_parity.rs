@@ -82,6 +82,7 @@ fn named(case: &str) -> Value {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_webhook_outcome_is_replayed_by_the_atom() {
     let all = recorded();
     assert_eq!(all.len(), 16, "the recorded webhook cases");
@@ -99,6 +100,7 @@ fn the_cases_the_atom_cannot_express_are_registry_validation_errors_that_send_no
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_5xx_reply_fails_after_the_one_allowed_attempt() {
     for case in SERVER_ERRORS {
         let run = check(&named(case));
@@ -107,6 +109,7 @@ fn a_5xx_reply_fails_after_the_one_allowed_attempt() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn an_unparseable_url_fails_with_no_exchange() {
     let fixture = named(UNPARSEABLE_URL);
     assert!(fixture["exchanges"].as_array().expect("exchanges").is_empty());
@@ -115,6 +118,7 @@ fn an_unparseable_url_fails_with_no_exchange() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_per_call_secret_signs_instead_of_the_env_secret() {
     let per_call = check(&named("send-signed-with-a-per-call-secret"));
     let env = check(&named("send-signed-with-the-env-secret"));
@@ -126,6 +130,7 @@ fn a_per_call_secret_signs_instead_of_the_env_secret() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn an_unsigned_send_carries_no_signature_header() {
     let run = check(&named("send-unsigned-without-any-secret"));
     assert!(run.sent[0].headers.iter().all(|(k, _)| !k.eq_ignore_ascii_case("x-almadar-signature")));
@@ -133,6 +138,7 @@ fn an_unsigned_send_carries_no_signature_header() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = named("send-signed-with-the-env-secret");
     let url = lolo_parity::text(&fixture["exchanges"][0]["request"], "url").replace("/hooks/orders", "/hooks/other");
@@ -142,6 +148,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = named("send-unauthorized-is-returned-not-thrown");
     fixture["outcome"]["data"]["status"] = json!(403);
@@ -150,6 +157,7 @@ fn a_drifted_recorded_outcome_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "headers")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_signature_fails_the_replay() {
     let mut fixture = named("send-signed-with-the-env-secret");
     fixture["exchanges"][0]["request"]["headers"]["x-almadar-signature"] = json!("sha256=00");

@@ -79,6 +79,7 @@ fn replayable() -> Vec<Value> {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_request_and_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 45, "the recorded calendar cases");
@@ -99,6 +100,7 @@ fn the_validation_only_cases_send_nothing() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn an_unreadable_success_body_fails_explicitly_while_an_empty_acknowledgement_still_succeeds() {
     let fixture = lolo_parity::fixture_named(&SPEC, "list-events-non-json-reply");
     let run = session(&fixture).run(&fixture, step(&fixture));
@@ -122,6 +124,7 @@ fn the_not_configured_cases_send_nothing_and_name_the_missing_service_account() 
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "list-events-window");
     let url = lolo_parity::text(&fixture["exchanges"][1]["request"], "url").replace("maxResults=250", "maxResults=251");
@@ -131,6 +134,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "request body bytes")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_assertion_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "list-events-window");
     let body = lolo_parity::text(&fixture["exchanges"][0]["request"], "body").replace("assertion=eyJ", "assertion=eyK");
@@ -140,6 +144,7 @@ fn a_drifted_recorded_assertion_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "list-events-window");
     fixture["outcome"]["data"]["nextSyncToken"] = json!("sync-other");

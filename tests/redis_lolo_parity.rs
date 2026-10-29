@@ -57,6 +57,7 @@ fn named(case: &str) -> Value {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn every_recorded_case_replays_to_its_recorded_asks_and_outcome() {
     let all = lolo_parity::fixtures(&SPEC);
     assert!(all.len() >= 26, "the recorded cases: {}", all.len());
@@ -66,6 +67,7 @@ fn every_recorded_case_replays_to_its_recorded_asks_and_outcome() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn the_lock_cycle_takes_refuses_and_releases_a_lock_on_one_session() {
     let scenarios = lolo_parity::step_scenarios(&SPEC);
     let [scenario] = scenarios.as_slice() else { panic!("one step scenario, got {}", scenarios.len()) };
@@ -79,6 +81,7 @@ fn the_lock_cycle_takes_refuses_and_releases_a_lock_on_one_session() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn a_get_makes_one_connection_with_one_send_and_one_read() {
     let run = check(&named("get-hit"));
     let ops: Vec<&str> = run.os_sent.iter().map(|call| call.op.name()).collect();
@@ -87,6 +90,7 @@ fn a_get_makes_one_connection_with_one_send_and_one_read() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn a_password_and_a_database_ride_one_pipeline_ahead_of_the_command() {
     let run = check(&named("get-as-an-acl-user-in-database-3"));
     let ops: Vec<&str> = run.os_sent.iter().map(|call| call.op.name()).collect();
@@ -94,6 +98,7 @@ fn a_password_and_a_database_ride_one_pipeline_ahead_of_the_command() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn a_reply_cut_across_two_reads_asks_for_the_second_read() {
     let run = check(&named("get-reply-split-across-reads"));
     let reads = run.os_sent.iter().filter(|call| call.op.name() == "os/recv").count();
@@ -101,6 +106,7 @@ fn a_reply_cut_across_two_reads_asks_for_the_second_read() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn control_a_wrong_password_never_sends_the_command() {
     let run = check(&named("get-wrong-password-fails"));
     let sends = run.os_sent.iter().filter(|call| call.op.name() == "os/send").count();
@@ -109,6 +115,7 @@ fn control_a_wrong_password_never_sends_the_command() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn control_a_failed_connect_makes_no_further_ask() {
     let run = check(&named("get-connect-not-granted-fails"));
     assert_eq!(run.os_sent.len(), 1);
@@ -116,6 +123,7 @@ fn control_a_failed_connect_makes_no_further_ask() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn control_a_validation_refusal_makes_no_ask_at_all() {
     for case in ["get-empty-key-fails", "publish-empty-channel-fails", "unlock-without-a-lock-id-fails"] {
         let run = check(&named(case));
@@ -126,6 +134,7 @@ fn control_a_validation_refusal_makes_no_ask_at_all() {
 
 #[test]
 #[should_panic(expected = "args")]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn control_a_drifted_command_fails_the_replay() {
     let mut fixture = named("set-with-ttl");
     fixture["osExchanges"][1]["os"]["args"][1] = json!("KjENCiQ0DQpQSU5HDQo=");
@@ -134,6 +143,7 @@ fn control_a_drifted_command_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std redis atom; the Rust redis driver is archived"]
 fn control_a_drifted_outcome_fails_the_replay() {
     let mut fixture = named("get-hit");
     fixture["outcome"]["data"]["value"] = json!("bob");

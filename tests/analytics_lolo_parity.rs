@@ -68,6 +68,7 @@ fn named(case: &str) -> Json {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = adapted_fixtures();
     assert_eq!(all.len(), 23, "the recorded analytics cases");
@@ -86,6 +87,7 @@ fn the_cases_that_send_nothing_are_replayed_with_zero_deliveries() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_public_host_that_merely_contains_localhost_still_sends() {
     let fixture = named("pageview-from-a-public-host-that-contains-localhost");
     assert_eq!(fixture["exchanges"].as_array().expect("exchanges").len(), 1);
@@ -94,6 +96,7 @@ fn a_public_host_that_merely_contains_localhost_still_sends() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = named("pageview");
     fixture["outcome"]["data"] = json!({ "sent": false });
@@ -102,6 +105,7 @@ fn a_drifted_recorded_outcome_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "request body bytes")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_body_fails_the_replay() {
     let mut fixture = named("pageview");
     let body = fixture["exchanges"][0]["request"]["body"].as_str().expect("body").replace("1440", "1441");

@@ -60,6 +60,7 @@ fn op_names(run: &lolo_parity::Run) -> Vec<&'static str> {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn every_recorded_scenario_replays_to_its_recorded_asks_and_outcome() {
     let all = lolo_parity::step_scenarios(&SPEC);
     assert!(all.len() >= 28, "the recorded scenarios: {}", all.len());
@@ -69,6 +70,7 @@ fn every_recorded_scenario_replays_to_its_recorded_asks_and_outcome() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn a_scram_login_draws_one_nonce_and_runs_the_statement_on_the_same_connection() {
     let runs = replay("select-rows-by-parameter");
     let ops = op_names(&runs[0].1);
@@ -79,6 +81,7 @@ fn a_scram_login_draws_one_nonce_and_runs_the_statement_on_the_same_connection()
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn a_trusted_login_sends_no_credential_and_names_no_nonce() {
     let runs = replay("trusted-login-without-a-password");
     assert_eq!(runs[0].1.unused_entropy, 0);
@@ -87,6 +90,7 @@ fn a_trusted_login_sends_no_credential_and_names_no_nonce() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn control_a_wrong_password_never_sends_the_statement() {
     let runs = replay("scram-wrong-password-fails");
     let ops = op_names(&runs[0].1);
@@ -95,6 +99,7 @@ fn control_a_wrong_password_never_sends_the_statement() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn control_a_refused_statement_makes_no_ask_at_all() {
     for case in [
         "delete-is-refused-before-any-ask",
@@ -110,12 +115,14 @@ fn control_a_refused_statement_makes_no_ask_at_all() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn control_a_failed_connect_makes_no_further_ask() {
     let runs = replay("connect-not-granted-fails");
     assert_eq!(runs[0].1.os_sent.len(), 1);
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn a_tls_request_to_a_server_without_tls_ends_the_call_after_one_byte() {
     let runs = replay("tls-refused-by-the-server-fails");
     assert_eq!(op_names(&runs[0].1), ["os/tcp-connect", "os/send", "os/recv", "os/close"]);
@@ -123,6 +130,7 @@ fn a_tls_request_to_a_server_without_tls_ends_the_call_after_one_byte() {
 
 #[test]
 #[should_panic(expected = "args")]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn control_a_drifted_statement_fails_the_replay() {
     let mut scenario = scenario("select-generate-series");
     scenario["steps"][0]["osExchanges"][3]["os"]["args"][1] = json!("AAAA");
@@ -131,6 +139,7 @@ fn control_a_drifted_statement_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std postgres atom; the Rust postgres driver is archived"]
 fn control_a_drifted_outcome_fails_the_replay() {
     let mut scenario = scenario("select-generate-series");
     scenario["steps"][0]["outcome"]["data"]["rowCount"] = json!(4);

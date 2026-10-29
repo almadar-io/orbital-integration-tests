@@ -10,7 +10,7 @@ mod session_regressions {
         ActionEvents, Deadline, ExchangeContract, FixtureAuthority, FixtureCredential,
         ParitySession, ParitySpec, RecordedBody, ReplayStep,
     };
-    use orbital_core::runtime::http_request::{CredentialSlot, SecretScope};
+    use orbital_core::runtime::http_wire::{CredentialSlot, SecretScope};
     use orbital_core::{OrbitalSchema, Value};
     use serde_json::{json, Value as Json};
 
@@ -676,7 +676,7 @@ mod session_regressions {
     }
 }
 
-use orbital_core::runtime::http_request::{CredentialSlot, SecretScope};
+use orbital_core::runtime::http_wire::{CredentialSlot, SecretScope};
 use orbital_core::runtime::http_service::HttpRequest;
 use orbital_core::runtime::resumable::{IoAnswer, IoRequest};
 use orbital_core::OrbitalSchema;
@@ -800,7 +800,7 @@ fn existing_harness_reads_the_declared_fixture_secret() {
         &legacy_fixture(""),
         lolo_parity::FixtureAuthority {
             credentials: vec![lolo_parity::FixtureCredential {
-                slot: orbital_core::runtime::http_request::CredentialSlot::from("TOKEN"),
+                slot: orbital_core::runtime::http_wire::CredentialSlot::from("TOKEN"),
                 principal: None,
                 value: Some(String::new()),
                 ttl_ms: None,
@@ -856,54 +856,6 @@ fn existing_harness_treats_an_empty_credential_as_absent() {
     assert_eq!(answers[0], IoAnswer::Secret(Ok(None)));
 }
 
-fn beacon(body: &[u8]) -> IoRequest {
-    IoRequest::HttpBeacon {
-        request: HttpRequest {
-            method: "POST".into(),
-            url: "https://api.example.test".into(),
-            headers: vec![],
-            body: body.to_vec(),
-            timeout: Some(std::time::Duration::from_millis(1000)),
-        },
-        key: None,
-        site: None,
-    }
-}
-
-#[test]
-fn beacon_fetches_against_the_recorded_exchange_and_reports_its_status() {
-    let answers = lolo_parity::probe_fixture_host(&LEGACY_SPEC, &legacy_fixture("ok"), &[beacon(b"ok")]);
-    assert!(matches!(
-        &answers[0],
-        IoAnswer::HttpBeacon(Ok(orbital_core::runtime::http_request::BeaconOutcome::Fetched { status: 200 }))
-    ));
-}
-
-#[test]
-fn beacon_queue_fixture_is_accepted_by_the_queue_and_replays_no_exchange() {
-    let mut fixture = legacy_fixture("ok");
-    fixture["beacon"] = json!("queue");
-    let answers = lolo_parity::probe_fixture_host(&LEGACY_SPEC, &fixture, &[beacon(b"ok")]);
-    assert!(matches!(
-        &answers[0],
-        IoAnswer::HttpBeacon(Ok(orbital_core::runtime::http_request::BeaconOutcome::Queued))
-    ));
-}
-
-#[test]
-#[should_panic(expected = "request body bytes")]
-fn beacon_fetch_with_a_drifted_body_fails_the_replay() {
-    lolo_parity::probe_fixture_host(&LEGACY_SPEC, &legacy_fixture("ok"), &[beacon(b"drifted")]);
-}
-
-#[test]
-#[should_panic(expected = "`beacon` must be")]
-fn beacon_fixture_key_is_a_closed_choice() {
-    let mut fixture = legacy_fixture("ok");
-    fixture["beacon"] = json!("fetch");
-    lolo_parity::probe_fixture_host(&LEGACY_SPEC, &fixture, &[beacon(b"ok")]);
-}
-
 fn facts(fixture: &serde_json::Value, fields: Vec<orbital_core::ir::PageFactField>) -> orbital_core::runtime::resumable::PageFacts {
     match lolo_parity::probe_fixture_host(&LEGACY_SPEC, fixture, &[IoRequest::PageFacts { fields }]).remove(0) {
         IoAnswer::PageFacts(Ok(facts)) => facts,
@@ -928,44 +880,6 @@ fn beacon_page_facts_without_a_fixture_page_are_the_no_page_defaults() {
     let none = facts(&legacy_fixture("ok"), vec![orbital_core::ir::PageFactField::Hostname]);
     assert!(!none.available);
     assert_eq!((none.hostname.as_str(), none.referrer.as_str(), none.screen_width), ("", "", None));
-}
-
-#[test]
-fn oauth_asks_are_answered_by_one_store_on_the_fixture_clock() {
-    use orbital_core::oauth::ask::{OAuthAsk, OAuthReply};
-    let ask = |ask: OAuthAsk, principal: Option<&str>| IoRequest::OAuth { ask, principal: principal.map(str::to_string) };
-    let mut fixture = legacy_fixture("ok");
-    fixture["now"] = json!("2027-01-15T08:00:00Z");
-    let answers = lolo_parity::probe_fixture_host(
-        &LEGACY_SPEC,
-        &fixture,
-        &[
-            ask(OAuthAsk::Clock, None),
-            ask(OAuthAsk::SubjectRemember { access_token: "at-1".into(), subject: "user-1".into() }, None),
-            ask(OAuthAsk::SubjectLookup { access_token: "at-1".into() }, None),
-            ask(OAuthAsk::SubjectLookup { access_token: "never-seen".into() }, None),
-            ask(OAuthAsk::ConnectionStatus { provider: orbital_core::oauth::ask::OAuthProvider::Google }, None),
-        ],
-    );
-    let expected = chrono::DateTime::parse_from_rfc3339("2027-01-15T08:00:00Z").unwrap().timestamp_millis();
-    assert!(matches!(&answers[0], IoAnswer::OAuth(Ok(OAuthReply::Millis { value })) if *value == expected));
-    assert!(matches!(&answers[2], IoAnswer::OAuth(Ok(OAuthReply::Subject { subject: Some(s) })) if s == "user-1"));
-    assert!(matches!(&answers[3], IoAnswer::OAuth(Ok(OAuthReply::Subject { subject: None }))), "control: an unknown token has no subject");
-    assert!(matches!(&answers[4], IoAnswer::OAuth(Err(_))), "control: a connection needs a signed-in caller");
-}
-
-#[test]
-fn oauth_store_state_survives_between_asks_of_one_session() {
-    use orbital_core::oauth::ask::{OAuthAsk, OAuthReply};
-    let one = |token: &str| IoRequest::OAuth { ask: OAuthAsk::SubjectLookup { access_token: token.into() }, principal: None };
-    let remember = IoRequest::OAuth {
-        ask: OAuthAsk::SubjectRemember { access_token: "at".into(), subject: "u".into() },
-        principal: None,
-    };
-    let together = lolo_parity::probe_fixture_host(&LEGACY_SPEC, &legacy_fixture("ok"), &[remember, one("at")]);
-    assert!(matches!(&together[1], IoAnswer::OAuth(Ok(OAuthReply::Subject { subject: Some(_) }))));
-    let apart = lolo_parity::probe_fixture_host(&LEGACY_SPEC, &legacy_fixture("ok"), &[one("at")]);
-    assert!(matches!(&apart[0], IoAnswer::OAuth(Ok(OAuthReply::Subject { subject: None }))), "a fresh host has no state");
 }
 
 #[test]
@@ -1044,6 +958,7 @@ fn alice_session(scenario: &serde_json::Value, ttl_ms: Option<u64>) -> lolo_pari
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn steps_replay_in_order_on_one_stateful_session() {
     // status, forget, status: the second status only sees "disconnected" because the forget carried over.
     let scenario = steps_scenario(vec![credential_step("status", true), credential_step("forget", false), credential_step("status", false)]);
@@ -1082,6 +997,7 @@ fn steps_control_a_placeholder_for_a_later_step_panics() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn steps_advance_ms_moves_the_clock_on_from_the_previous_step() {
     // the credential lives 200 ms from t=1000: live at 1000, gone after advancing 500
     let mut scenario = steps_scenario(vec![credential_step("status", true), credential_step("status", false)]);

@@ -11,7 +11,7 @@ use lolo_parity::{
     ActionEvents, Deadline, ExchangeContract, FixtureAuthority, FixtureCredential, ParitySession, ParitySpec,
     ReplayStep,
 };
-use orbital_core::runtime::http_request::CredentialSlot;
+use orbital_core::runtime::http_wire::CredentialSlot;
 use serde_json::{json, Value as Json};
 
 const ORIGIN: &str = "https://kflow.example.com";
@@ -108,6 +108,7 @@ fn expired_authority() -> FixtureAuthority {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_currenttopics_outcome_is_replayed_by_the_atom() {
     assert_eq!(lolo_parity::fixtures(&SPEC).len(), 16, "the recorded knowledge-web cases");
     let cases = replayable();
@@ -126,6 +127,7 @@ fn the_cases_the_atom_does_not_take_are_host_actions_or_validation_errors_that_s
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn equal_weight_labels_are_ordered_by_code_point_an_approved_divergence() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, LOCALE_ORDER);
     let topics = fixture["outcome"]["data"]["topics"].as_array_mut().expect("topics");
@@ -137,6 +139,7 @@ fn equal_weight_labels_are_ordered_by_code_point_an_approved_divergence() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn an_expired_id_token_is_refreshed_once_rotated_and_used_for_all_three_reads() {
     let base = lolo_parity::fixture_named(&SPEC, "topics-compose");
     let fixture = with_grant(
@@ -152,6 +155,7 @@ fn an_expired_id_token_is_refreshed_once_rotated_and_used_for_all_three_reads() 
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_refresh_the_sign_in_service_rejects_ends_the_call_before_any_read() {
     let mut fixture = with_grant(lolo_parity::fixture_named(&SPEC, "topics-compose"), 400, r#"{"error":"TOKEN_EXPIRED"}"#);
     fixture["exchanges"].as_array_mut().expect("exchanges").truncate(1);
@@ -165,6 +169,7 @@ fn a_refresh_the_sign_in_service_rejects_ends_the_call_before_any_read() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "topics-compose");
     fixture["exchanges"][2]["request"]["url"] = json!(format!("{ORIGIN}/api/user/statistics/recent-activity?limit=51"));
@@ -173,6 +178,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "topics-compose");
     fixture["outcome"]["data"]["topics"][0]["label"] = json!("Prim");
@@ -302,6 +308,7 @@ fn replace_text(fixture: &Json, from: &str, to: &str) -> Json {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_concept_icon_miss_is_replayed_by_the_organism() {
     for case in [
         "concept-icon-blank",
@@ -314,6 +321,7 @@ fn every_recorded_concept_icon_miss_is_replayed_by_the_organism() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_cached_concept_icon_is_answered_without_a_request() {
     let found = without_cache_exchanges(knowledge_fixture("concept-icon-found-by-search"));
     let cached = without_cache_exchanges(knowledge_fixture("concept-icon-cached"));
@@ -324,6 +332,7 @@ fn a_cached_concept_icon_is_answered_without_a_request() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_cached_miss_answers_an_empty_icon_without_a_request() {
     let nothing = replace_text(
         &without_cache_exchanges(knowledge_fixture("concept-icon-nothing-found-is-cached")),
@@ -339,6 +348,7 @@ fn a_cached_miss_answers_an_empty_icon_without_a_request() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_concept_persona_miss_is_replayed_by_the_organism() {
     for case in [
         "concept-persona",
@@ -352,6 +362,7 @@ fn every_recorded_concept_persona_miss_is_replayed_by_the_organism() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_cached_persona_is_answered_from_its_stored_bio_without_a_request() {
     let mut miss = without_cache_exchanges(knowledge_fixture("concept-persona-wikipedia-miss"));
     let draft = json!({

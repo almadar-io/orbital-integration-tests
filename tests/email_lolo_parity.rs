@@ -40,6 +40,7 @@ fn excluded() -> Vec<&'static str> {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 26, "the recorded email cases");
@@ -69,6 +70,7 @@ fn the_not_configured_cases_send_nothing() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "sendgrid-send");
     fixture["exchanges"][0]["request"]["url"] = json!("https://api.sendgrid.com/v3/mail/sent");
@@ -77,6 +79,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "resend-send");
     fixture["outcome"]["data"]["id"] = json!("re-msg-other");
@@ -85,6 +88,7 @@ fn a_drifted_recorded_outcome_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "request body")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_body_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "sendgrid-send-named-addresses");
     fixture["exchanges"][0]["request"]["body"] = json!("{}");

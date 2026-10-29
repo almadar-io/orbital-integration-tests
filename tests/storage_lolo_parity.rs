@@ -184,6 +184,7 @@ fn binary_step(step: &Value, request_body: RecordedBody, response_body: Recorded
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_binary_s3_object_reaches_the_result_as_base64_of_its_bytes() {
     let mut step = named("s3-object-round-trip#4");
     step["outcome"]["data"]["content"] = json!(BINARY_BASE64);
@@ -194,6 +195,7 @@ fn a_binary_s3_object_reaches_the_result_as_base64_of_its_bytes() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn control_a_binary_s3_object_does_not_match_the_text_content() {
     let step = named("s3-object-round-trip#4");
     let replay = binary_step(&step, RecordedBody::RecordedText, RecordedBody::Bytes(BINARY.to_vec()));
@@ -201,6 +203,7 @@ fn control_a_binary_s3_object_does_not_match_the_text_content() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_binary_s3_upload_is_sent_unchanged() {
     let mut step = named("s3-upload-forms#1");
     step["params"]["file"]["content"] = json!(format!("data:image/png;base64,{BINARY_BASE64}"));
@@ -218,6 +221,7 @@ fn the_fixture_set_is_the_recorded_94_steps() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_s3_exchange_and_outcome_is_replayed_by_the_atom() {
     let all = fully_replayed();
     assert_eq!(all.len(), 48);
@@ -256,6 +260,7 @@ fn the_memory_backend_steps_are_not_replayed_because_the_atom_has_no_memory_back
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_presign_lifetime_the_kernel_refuses_fails_explicitly() {
     for step in steps().iter().filter(|s| PRESIGN_LIFETIME_REFUSED.contains(&name(s))) {
         let run = replay(step);
@@ -267,6 +272,7 @@ fn a_presign_lifetime_the_kernel_refuses_fails_explicitly() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut step = steps().into_iter().find(|s| name(s) == "s3-object-round-trip#5").expect("step");
     let url = step["exchanges"][0]["request"]["url"].as_str().expect("url").replace("max-keys=2", "max-keys=3");
@@ -276,6 +282,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut step = steps().into_iter().find(|s| name(s) == "s3-object-round-trip#8").expect("step");
     step["outcome"]["data"]["deleted"] = json!(false);

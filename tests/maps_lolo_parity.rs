@@ -40,6 +40,7 @@ const SPEC: ParitySpec = ParitySpec {
 };
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     assert_eq!(
         lolo_parity::fixtures(&SPEC).len(),
@@ -55,6 +56,7 @@ fn every_recorded_outcome_is_replayed_by_the_atom() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     lolo_parity::drifted_url_control(&SPEC, "geocode", "limit=1", "limit=2");
 }

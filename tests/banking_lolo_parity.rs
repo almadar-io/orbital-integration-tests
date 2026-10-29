@@ -11,7 +11,7 @@ use lolo_parity::{
     ActionEvents, Deadline, ExchangeContract, FixtureAuthority, FixtureCredential, ParitySession, ParitySpec,
     ReplayStep,
 };
-use orbital_core::runtime::http_request::CredentialSlot;
+use orbital_core::runtime::http_wire::CredentialSlot;
 use serde_json::{json, Value as Json};
 
 const SPEC: ParitySpec = ParitySpec {
@@ -85,6 +85,7 @@ fn replay_all_except(excluded: &[&str]) -> usize {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 20, "the recorded banking cases");
@@ -99,6 +100,7 @@ fn the_cases_the_atom_cannot_express_are_registry_validation_errors_that_send_no
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn an_error_body_over_300_characters_is_reported_in_full() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, CAPPED_ERROR);
     let body = fixture["exchanges"][1]["response"]["body"].as_str().expect("body").to_string();
@@ -109,17 +111,20 @@ fn an_error_body_over_300_characters_is_reported_in_full() {
 
 #[test]
 #[should_panic(expected = "emitted failure")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn the_recorded_capped_error_text_is_not_what_the_atom_emits() {
     replay(&lolo_parity::fixture_named(&SPEC, CAPPED_ERROR));
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn the_rejected_login_fixture_is_replayed_by_the_atom() {
     replay(&lolo_parity::fixture_named(&SPEC, LOGIN_REJECTED));
 }
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "list-accounts");
     let url = fixture["exchanges"][1]["request"]["url"].as_str().expect("url").replace("requisitions", "requisition");
@@ -129,6 +134,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "create-requisition");
     fixture["outcome"]["data"]["link"] = json!("https://elsewhere.example/");

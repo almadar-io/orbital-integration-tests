@@ -168,6 +168,7 @@ fn only() -> Option<Vec<String>> {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 52, "the recorded llm cases");
@@ -194,6 +195,7 @@ fn the_cases_the_atom_cannot_express_are_registry_validation_errors_that_send_no
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = translate(&lolo_parity::fixture_named(&SPEC, "openai-generate"));
     let url = lolo_parity::text(&fixture["exchanges"][0]["request"], "url").replace("/chat/completions", "/chat/completion");
@@ -203,6 +205,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = translate(&lolo_parity::fixture_named(&SPEC, "openai-generate"));
     fixture["outcome"]["data"]["content"] = json!("NOT OK");
@@ -230,6 +233,7 @@ fn two_turn_scenario() -> Json {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_call_tools_scenario_is_replayed_by_the_atom() {
     let scenarios = lolo_parity::step_scenarios(&SPEC);
     assert_eq!(scenarios.len(), 7, "the recorded llm step scenarios");
@@ -241,6 +245,7 @@ fn every_recorded_call_tools_scenario_is_replayed_by_the_atom() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_scenario_outcome_fails_the_replay() {
     let mut scenario = scenario_translated(&two_turn_scenario());
     let last = scenario["steps"].as_array().expect("steps").len() - 1;
@@ -250,6 +255,7 @@ fn a_drifted_scenario_outcome_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "body")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_tool_call_id_in_a_later_request_fails_the_replay() {
     let mut scenario = scenario_translated(&two_turn_scenario());
     let body = lolo_parity::text(&scenario["steps"][1]["exchanges"][0]["request"], "body").replace("call_1", "call_9");
@@ -283,12 +289,14 @@ fn send_offsets(fixture: &Json) -> Vec<u64> {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_failed_embed_attempt_waits_500_then_2000_ms_before_it_is_sent_again() {
     let fixture = embed_fixture("lmstudio-embed-provider-error-envelope");
     assert_eq!(send_offsets(&fixture), vec![0, 500, 2_500]);
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_rate_limited_embed_attempt_waits_the_retry_after_header_else_two_seconds() {
     assert_eq!(send_offsets(&rate_limited_embed(json!({ "retry-after": "7" }))), vec![0, 7_000]);
     // Controls: no header takes the first step of the 2000/5000/15000 schedule, and a header that is not whole seconds is ignored.
@@ -309,6 +317,7 @@ fn lmstudio_authorization(key: Option<&str>) -> String {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn lmstudio_embeddings_send_the_configured_key_when_it_is_set_and_not_needed_when_it_is_not() {
     assert_eq!(lmstudio_authorization(Some("test-key")), "Bearer test-key");
     assert_eq!(lmstudio_authorization(None), "Bearer not-needed");

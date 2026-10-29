@@ -40,6 +40,7 @@ fn malformed_reply_fixture(body: &str, message: &str) -> serde_json::Value {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_campaigns_reply_that_is_not_a_list_fails_explicitly() {
     let recorded = lolo_parity::fixture_named(&SPEC, MALFORMED_REPLY);
     let body = recorded["exchanges"][0]["response"]["body"].as_str().expect("body").to_string();
@@ -47,11 +48,13 @@ fn a_campaigns_reply_that_is_not_a_list_fails_explicitly() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_campaigns_reply_that_is_not_json_fails_explicitly() {
     lolo_parity::check(&SPEC, &malformed_reply_fixture("not json", "Meta Graph API replied with a body that is not valid JSON"));
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_campaigns_reply_without_data_is_still_an_empty_list() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, MALFORMED_REPLY);
     fixture["exchanges"][0]["response"]["body"] = serde_json::json!("{}");
@@ -59,6 +62,7 @@ fn a_campaigns_reply_without_data_is_still_an_empty_list() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_missing_token_with_an_account_reports_the_provider_message() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "get-spend");
     fixture["env"] = serde_json::json!({"META_AD_ACCOUNT_ID": "1234567890"});
@@ -74,6 +78,7 @@ fn the_credential_absent_fixture_is_not_replayable_by_the_atom() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 21, "the recorded metaAds cases");
@@ -90,12 +95,14 @@ fn the_cases_the_atom_cannot_express_are_registry_validation_errors_that_send_no
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     lolo_parity::drifted_url_control(&SPEC, "get-spend", "level=account", "level=ad");
 }
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     lolo_parity::drifted_outcome_control(&SPEC, "get-spend", "spend", serde_json::json!(1.0));
 }

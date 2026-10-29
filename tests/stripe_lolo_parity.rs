@@ -66,6 +66,7 @@ fn replay(fixture: &Value) {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 52, "the recorded stripe cases");
@@ -96,12 +97,14 @@ fn the_retried_cases_record_more_than_one_exchange() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     lolo_parity::drifted_url_control(&SPEC, "get-subscription", "/v1/subscriptions/sub_1", "/v1/subscriptions/sub_2");
 }
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     lolo_parity::drifted_outcome_control(&SPEC, "get-subscription", "tier", serde_json::json!("teams"));
 }

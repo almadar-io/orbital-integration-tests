@@ -8,7 +8,7 @@ use lolo_parity::{
     ActionEvents, Deadline, ExchangeContract, FixtureAuthority, FixtureCredential, ParitySession, ParitySpec,
     RecordedBody, ReplayStep,
 };
-use orbital_core::runtime::http_request::{CredentialSlot, SecretScope};
+use orbital_core::runtime::http_wire::{CredentialSlot, SecretScope};
 use serde_json::{json, Value};
 
 const SPEC: ParitySpec = ParitySpec {
@@ -113,6 +113,7 @@ const BINARY: [u8; 12] = [0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0xfe, 0x80, 0xc3, 
 const BINARY_BASE64: &str = "JVBERgD//oDDKA0K";
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_binary_drive_file_reaches_the_result_as_base64_of_its_bytes() {
     let mut fixture = with_boundary(&lolo_parity::fixture_named(&SPEC, "get-file"));
     fixture["outcome"]["data"]["content"] = json!(BINARY_BASE64);
@@ -125,6 +126,7 @@ fn a_binary_drive_file_reaches_the_result_as_base64_of_its_bytes() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn control_a_binary_drive_file_does_not_match_the_text_content() {
     let fixture = with_boundary(&lolo_parity::fixture_named(&SPEC, "get-file"));
     let mut replay = step(&fixture);
@@ -134,6 +136,7 @@ fn control_a_binary_drive_file_does_not_match_the_text_content() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_binary_drive_upload_is_sent_unchanged_inside_the_multipart_body() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "upload-file-base64-data-url");
     fixture["params"]["content"] = json!(format!("data:application/octet-stream;base64,{BINARY_BASE64}"));
@@ -152,6 +155,7 @@ fn a_binary_drive_upload_is_sent_unchanged_inside_the_multipart_body() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_replayable_recorded_fixture_is_replayed_by_the_atom() {
     assert_eq!(lolo_parity::fixtures(&SPEC).len(), 43, "the recorded drive cases");
     let cases = replayable();
@@ -178,6 +182,7 @@ fn the_validation_only_cases_send_nothing() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "list-files-filters");
     let url = lolo_parity::text(&fixture["exchanges"][1]["request"], "url").replace("pageSize=5", "pageSize=6");
@@ -187,6 +192,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = lolo_parity::fixture_named(&SPEC, "share-file");
     fixture["outcome"]["data"]["permissionId"] = json!("perm-other");

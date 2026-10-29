@@ -34,6 +34,7 @@ fn with_body(body: &str) -> serde_json::Value {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_replayable_outcome_is_replayed_by_the_atom() {
     assert_eq!(
         lolo_parity::replay_all_except(&SPEC, &VALIDATION_ONLY),
@@ -48,6 +49,7 @@ fn the_validation_cases_are_registry_errors_that_send_nothing() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_2xx_body_that_is_not_xml_fails_explicitly_instead_of_answering_an_empty_list() {
     for body in ["Bad Gateway", "", "<feed><entry>"] {
         let run = lolo_parity::run(&SPEC, &with_body(body));
@@ -62,6 +64,7 @@ fn a_2xx_body_that_is_not_xml_fails_explicitly_instead_of_answering_an_empty_lis
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_well_formed_feed_without_entries_is_an_empty_list_not_a_failure() {
     for body in [
         "<feed xmlns=\"http://www.w3.org/2005/Atom\"/>",
@@ -75,6 +78,7 @@ fn a_well_formed_feed_without_entries_is_an_empty_list_not_a_failure() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_single_entry_a_nameless_author_and_the_alternate_link_map_like_the_provider() {
     let feed = "<feed><entry><id>I</id><title>T</title><author><uri>x</uri></author><author><name>A</name></author>\
         <link href=\"http://pdf\" rel=\"related\"/><link href=\"http://page\" rel=\"alternate\"/></entry>\
@@ -93,12 +97,14 @@ fn a_single_entry_a_nameless_author_and_the_alternate_link_map_like_the_provider
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     lolo_parity::drifted_url_control(&SPEC, "search-http-503-yields-no-results", "max_results=8", "max_results=9");
 }
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     lolo_parity::drifted_outcome_control(&SPEC, "search", "results", json!([]));
 }

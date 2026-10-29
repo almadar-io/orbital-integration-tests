@@ -29,6 +29,7 @@ const VALIDATION_ONLY: [&str; 4] =
     ["unknown-action", "validation-missing-title", "validation-unknown-param", "validation-wrong-type"];
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = lolo_parity::fixtures(&SPEC);
     assert_eq!(all.len(), 16, "the recorded wikimedia cases");
@@ -42,12 +43,14 @@ fn the_cases_the_atom_cannot_express_are_registry_validation_errors_that_send_no
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     lolo_parity::drifted_url_control(&SPEC, "get-page", "pithumbsize=240", "pithumbsize=241");
 }
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     lolo_parity::drifted_outcome_control(&SPEC, "get-page", "title", serde_json::json!("Grace Hopper"));
 }

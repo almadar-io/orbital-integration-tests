@@ -56,6 +56,7 @@ fn replayed() -> Vec<Value> {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn every_recorded_outcome_is_replayed_by_the_atom() {
     let all = replayed();
     assert_eq!(all.len(), 13);
@@ -65,6 +66,7 @@ fn every_recorded_outcome_is_replayed_by_the_atom() {
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_binary_document_reaches_the_result_as_base64_of_its_bytes() {
     let mut fixture = adapted(&lolo_parity::fixture_named(&SPEC, "download-document"));
     fixture["outcome"]["data"]["content"] = json!(BINARY_BASE64);
@@ -81,6 +83,7 @@ fn a_binary_document_reaches_the_result_as_base64_of_its_bytes() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn control_a_binary_document_does_not_match_the_text_fixture_content() {
     let fixture = adapted(&lolo_parity::fixture_named(&SPEC, "download-document"));
     let step = ReplayStep {
@@ -106,6 +109,7 @@ fn the_cases_the_atom_cannot_express_are_registry_validation_errors_that_send_no
 }
 
 #[test]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_missing_credential_is_refused_before_any_request_is_sent() {
     for case in NOT_CONFIGURED {
         let fixture = adapted(&lolo_parity::fixture_named(&SPEC, case));
@@ -119,6 +123,7 @@ fn a_missing_credential_is_refused_before_any_request_is_sent() {
 
 #[test]
 #[should_panic(expected = "url")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_url_fails_the_replay() {
     let mut fixture = adapted(&lolo_parity::fixture_named(&SPEC, "get-envelope-status-completed"));
     fixture["exchanges"][0]["request"]["url"] = json!(format!("{ORIGIN}/restapi/v2.1/accounts/acct-1/envelopes/env-2"));
@@ -127,6 +132,7 @@ fn a_drifted_recorded_url_fails_the_replay() {
 
 #[test]
 #[should_panic(expected = "emitted result")]
+#[ignore = "acceptance criteria for the std http atom; the Rust http driver is archived"]
 fn a_drifted_recorded_outcome_fails_the_replay() {
     let mut fixture = adapted(&lolo_parity::fixture_named(&SPEC, "send-envelope"));
     fixture["outcome"]["data"]["status"] = json!("created");
