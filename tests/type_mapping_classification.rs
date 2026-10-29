@@ -40,7 +40,7 @@ fn table() -> Vec<Row> {
     vec![
         Row { name: "String", ty: OirType::String, ts: F, kotlin: F, swift: F },
         Row { name: "Number", ty: OirType::Number, ts: F, kotlin: W, swift: W },
-        Row { name: "Instant", ty: OirType::Instant, ts: F, kotlin: W, swift: W },
+        Row { name: "Instant", ty: OirType::Instant, ts: W, kotlin: W, swift: W },
         Row { name: "Integer", ty: OirType::Integer, ts: W, kotlin: F, swift: F },
         Row { name: "Boolean", ty: OirType::Boolean, ts: F, kotlin: F, swift: F },
         // Python is the one faithful `datetime` arm; every other target
@@ -151,7 +151,7 @@ fn every_variant_matches_the_enumeration_table_per_shell() {
 #[test]
 fn per_shell_counts_match_the_table_summary() {
     let rows = table();
-    assert_eq!(rows.len(), 28, "the table enumerates 28 OirType variants");
+    assert_eq!(rows.len(), 29, "the table enumerates 29 OirType variants");
     let count = |f: fn(&Row) -> TypeMappingClass| {
         let mut counts = (0, 0, 0);
         for row in &rows {
@@ -164,10 +164,10 @@ fn per_shell_counts_match_the_table_summary() {
         counts
     };
     // (faithful, widening, lossy) per the Phase-3D-amended summary (TypeRef
-    // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust).
-    assert_eq!(count(|r| r.ts), (16, 11, 1), "TypeScript");
-    assert_eq!(count(|r| r.kotlin), (13, 13, 2), "Kotlin");
-    assert_eq!(count(|r| r.swift), (13, 13, 2), "Swift");
+    // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust); Instant is ISO text like DateTime (2026-10-28 ruling).
+    assert_eq!(count(|r| r.ts), (16, 12, 1), "TypeScript");
+    assert_eq!(count(|r| r.kotlin), (13, 14, 2), "Kotlin");
+    assert_eq!(count(|r| r.swift), (13, 14, 2), "Swift");
 }
 
 #[test]
@@ -196,4 +196,114 @@ fn enum_values_sidecar_is_faithful_at_the_field_position() {
         orbital_shell_typescript::classify_oir_type(&OirType::String, Some(&vals)),
         F
     );
+}
+
+/// The checker (a knob default) and the dispatch validator (an event payload member) share one grammar per scalar type.
+#[test]
+fn the_checker_and_the_dispatch_validator_accept_and_refuse_the_same_scalars() {
+    use orbital_core::runtime::payload_validation::validate_event_payload;
+    use orbital_core::schema::{OrbitalSchema, PayloadField};
+    use orbital_compiler::phases::validation::{validate_comprehensive_without_services, ErrorCode};
+    use serde_json::json;
+
+    let enum_values = json!(["on", "off"]);
+    let samples: Vec<(&str, Option<&serde_json::Value>, serde_json::Value)> = vec![
+        ("string", None, json!("x")),
+        ("string", None, json!(1)),
+        ("string", None, json!(true)),
+        ("number", None, json!(1.5)),
+        ("number", None, json!("1")),
+        ("number", None, json!(false)),
+        ("int", None, json!(3)),
+        ("int", None, json!("3")),
+        ("boolean", None, json!(true)),
+        ("boolean", None, json!("true")),
+        ("boolean", None, json!(0)),
+        ("date", None, json!("2026-10-28")),
+        ("date", None, json!("2026-13-45")),
+        ("date", None, json!("tomorrow")),
+        ("date", None, json!("2026-10-28T10:30:00Z")),
+        ("date", None, json!(0)),
+        ("datetime", None, json!("2026-10-28T10:30:00Z")),
+        ("datetime", None, json!("2026-10-28T10:30:00+02:00")),
+        ("datetime", None, json!("2026-10-28")),
+        ("datetime", None, json!("2026-10-28T10:30:00")),
+        ("datetime", None, json!("soon")),
+        ("datetime", None, json!(0)),
+        ("instant", None, json!("2026-10-29T02:30:00.000Z")),
+        ("instant", None, json!("1970-01-01T00:00:00.000Z")),
+        ("instant", None, json!("2026-10-28")),
+        ("instant", None, json!("1970-01-01 00:00:00")),
+        ("instant", None, json!(1_700_000_000_000_i64)),
+        ("instant", None, json!(true)),
+        ("timestamp", None, json!("2026-10-29T02:30:00Z")),
+        ("timestamp", None, json!("2026-10-29")),
+        ("timestamp", None, json!(0)),
+        ("timestamp", None, json!("nope")),
+        ("string", Some(&enum_values), json!("on")),
+        ("string", Some(&enum_values), json!("off")),
+        ("string", Some(&enum_values), json!("maybe")),
+        ("string", Some(&enum_values), json!("")),
+        ("string", Some(&enum_values), json!(1)),
+    ];
+
+    let mut both_refuse = 0;
+    for (tag, values, value) in samples {
+        let mut knob = json!({ "type": tag, "default": value });
+        let mut member = json!({ "name": "n", "type": tag, "required": true });
+        if let Some(values) = values {
+            knob["values"] = values.clone();
+            member["values"] = values.clone();
+        }
+        let schema: OrbitalSchema = serde_json::from_value(json!({
+            "name": "Twin",
+            "version": "0.1.0",
+            "orbitals": [{
+                "name": "TwinOrbital",
+                "entity": {
+                    "name": "Dashboard",
+                    "collection": "dashboards",
+                    "fields": [{ "name": "id", "type": "string", "required": true, "primaryKey": true }]
+                },
+                "traits": [{
+                    "name": "Knobbed",
+                    "linkedEntity": "Dashboard",
+                    "config": { "knob": knob },
+                    "stateMachine": {
+                        "states": [{ "name": "idle", "isInitial": true }],
+                        "events": [],
+                        "transitions": [{ "from": "idle", "to": "idle", "event": "INIT", "effects": [] }]
+                    }
+                }]
+            }]
+        }))
+        .expect("schema deserializes");
+        let checker_accepts = !validate_comprehensive_without_services(&schema)
+            .errors
+            .iter()
+            .any(|e| e.code == ErrorCode::TraitConfigShapeMismatch);
+
+        let field: PayloadField = serde_json::from_value(member).expect("payload field deserializes");
+        let payload = serde_json::from_value(json!({ "n": value.clone() })).expect("payload deserializes");
+        let dispatch_accepts = validate_event_payload("GO", &payload, &[field]).is_empty();
+        assert_eq!(
+            checker_accepts, dispatch_accepts,
+            "`{tag}` {values:?} = {value}: checker accepts {checker_accepts}, dispatch accepts {dispatch_accepts}"
+        );
+        both_refuse += usize::from(!checker_accepts);
+    }
+    assert!(both_refuse >= 15, "the checker side must actually refuse: {both_refuse}");
+
+    let accepts = |tag: &str, values: Option<&serde_json::Value>, value: serde_json::Value| -> bool {
+        let mut member = json!({ "name": "n", "type": tag, "required": true });
+        if let Some(values) = values {
+            member["values"] = values.clone();
+        }
+        let field: PayloadField = serde_json::from_value(member).unwrap();
+        let payload = serde_json::from_value(json!({ "n": value })).unwrap();
+        validate_event_payload("GO", &payload, &[field]).is_empty()
+    };
+    assert!(accepts("string", Some(&enum_values), json!("on")), "a declared member is accepted");
+    assert!(!accepts("string", Some(&enum_values), json!("maybe")), "an undeclared literal is refused");
+    assert!(accepts("string", None, json!("maybe")), "control: no declared set");
 }
