@@ -73,9 +73,6 @@ fn table() -> Vec<Row> {
         Row { name: "CallKey", ty: OirType::CallKey, ts: F, kotlin: F, swift: F },
         // A field reference is the field's name, a string at rest, like `callkey`.
         Row { name: "FieldRef", ty: OirType::FieldRef { record: Box::new(OirType::reference("@entity")), value: None }, ts: F, kotlin: F, swift: F },
-        // TS Declared `Record<string, FieldValue | undefined>` is the shapeless
-        // record — Lossy; Rust's `serde_json::Value` is the one faithful json.
-        Row { name: "Json", ty: OirType::Json, ts: L, kotlin: L, swift: L },
         // Phase 3: TS has always spelled the closed union; Kotlin
         // (JsonPrimitive), Swift (4-case Codable enum), Python
         // (`Union[str, float, bool, None]`), and Rust (`#[serde(untagged)]`
@@ -151,7 +148,7 @@ fn every_variant_matches_the_enumeration_table_per_shell() {
 #[test]
 fn per_shell_counts_match_the_table_summary() {
     let rows = table();
-    assert_eq!(rows.len(), 29, "the table enumerates 29 OirType variants");
+    assert_eq!(rows.len(), 28, "the table enumerates 28 OirType variants");
     let count = |f: fn(&Row) -> TypeMappingClass| {
         let mut counts = (0, 0, 0);
         for row in &rows {
@@ -165,20 +162,25 @@ fn per_shell_counts_match_the_table_summary() {
     };
     // (faithful, widening, lossy) per the Phase-3D-amended summary (TypeRef
     // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust); Instant is ISO text like DateTime (2026-10-28 ruling).
-    assert_eq!(count(|r| r.ts), (16, 12, 1), "TypeScript");
-    assert_eq!(count(|r| r.kotlin), (13, 14, 2), "Kotlin");
-    assert_eq!(count(|r| r.swift), (13, 14, 2), "Swift");
+    assert_eq!(count(|r| r.ts), (16, 12, 0), "TypeScript");
+    assert_eq!(count(|r| r.kotlin), (13, 14, 1), "Kotlin");
+    assert_eq!(count(|r| r.swift), (13, 14, 1), "Swift");
+}
+
+/// A tuple of unlike slots has no typed spelling in the json-carrier shells: it is a list of their untyped value.
+fn mixed_pair() -> OirType {
+    OirType::Tuple { items: vec![OirType::String, OirType::Number] }
 }
 
 #[test]
 fn composition_carries_the_inner_classification() {
     // A faithful container of a lossy element is lossy (a container carries its element's fidelity).
     for (name, cls) in [
-        ("ts", orbital_shell_typescript::classify_oir_type(&OirType::array(OirType::Json), None)),
-        ("android", orbital_shell_android::classify_oir_type(&OirType::array(OirType::Json))),
-        ("ios", orbital_shell_ios::classify_oir_type(&OirType::array(OirType::Json))),
+        ("ts", orbital_shell_typescript::classify_oir_type(&OirType::array(mixed_pair()), None)),
+        ("android", orbital_shell_android::classify_oir_type(&OirType::array(mixed_pair()))),
+        ("ios", orbital_shell_ios::classify_oir_type(&OirType::array(mixed_pair()))),
     ] {
-        assert_eq!(cls, L, "{name}: Array<Json>");
+        assert_eq!(cls, L, "{name}: Array<mixed tuple>");
     }
     // Optional<Money> widens (currency erased) without becoming lossy.
     assert_eq!(
@@ -306,4 +308,268 @@ fn the_checker_and_the_dispatch_validator_accept_and_refuse_the_same_scalars() {
     assert!(accepts("string", Some(&enum_values), json!("on")), "a declared member is accepted");
     assert!(!accepts("string", Some(&enum_values), json!("maybe")), "an undeclared literal is refused");
     assert!(accepts("string", None, json!("maybe")), "control: no declared set");
+}
+
+/// The `.lolo` spelling of a JSON value, for a knob default.
+fn lolo_literal(value: &serde_json::Value) -> String {
+    use serde_json::Value;
+    match value {
+        Value::Null => "null".to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => serde_json::to_string(s).expect("a string serializes"),
+        Value::Array(items) => format!("[{}]", items.iter().map(lolo_literal).collect::<Vec<_>>().join(", ")),
+        Value::Object(map) => format!(
+            "{{ {} }}",
+            map.iter().map(|(k, v)| format!("{k}: {}", lolo_literal(v))).collect::<Vec<_>>().join(", ")
+        ),
+    }
+}
+
+/// The differential the type-system cause names: a declaration the checker accepts a value for is never refused for
+/// that value at dispatch, for records, lists and optionals as for scalars (the scalar twin above). Both sides are
+/// read from ONE `.lolo` declaration: the knob `k : T = <value>` the checker walks and the event member `n : T!`
+/// the dispatch validator walks.
+#[test]
+fn the_checker_and_the_dispatch_validator_accept_and_refuse_the_same_records_lists_and_optionals() {
+    use orbital_compiler::phases::validation::{validate_comprehensive_without_services, ErrorCode};
+    use orbital_core::runtime::payload_validation::validate_event_payload;
+    use orbital_core::schema::PayloadField;
+    use serde_json::json;
+
+    let record = "{ a : string!, n : number }";
+    let samples: Vec<(String, serde_json::Value)> = vec![
+        (record.into(), json!({ "a": "x" })),
+        (record.into(), json!({ "a": "x", "n": 1 })),
+        (record.into(), json!({})),
+        (record.into(), json!({ "a": 1 })),
+        (record.into(), json!({ "a": "x", "n": "s" })),
+        (record.into(), json!("text")),
+        (record.into(), json!([1])),
+        ("[string]".into(), json!(["a"])),
+        ("[string]".into(), json!([])),
+        ("[string]".into(), json!([1])),
+        ("[string]".into(), json!(["a", 2])),
+        ("[string]".into(), json!("a")),
+        (format!("[{record}]"), json!([{ "a": "x" }])),
+        (format!("[{record}]"), json!([{ "a": 1 }])),
+        (format!("[{record}]"), json!([{}])),
+        ("string?".into(), json!(null)),
+        ("string?".into(), json!("x")),
+        ("string?".into(), json!(1)),
+        (format!("({record})?"), json!(null)),
+        (format!("({record})?"), json!({ "a": "x" })),
+        (format!("({record})?"), json!({ "a": 1 })),
+        ("{ tags : [string]! }".into(), json!({ "tags": ["a"] })),
+        ("{ tags : [string]! }".into(), json!({ "tags": [1] })),
+        ("{ tags : [string]! }".into(), json!({})),
+        ("Map string number".into(), json!({ "x": 1 })),
+        ("Map string number".into(), json!({ "x": "s" })),
+    ];
+
+    let mut both_refuse = 0;
+    let mut both_accept = 0;
+    let mut disagreements = Vec::new();
+    for (ty, value) in &samples {
+        let source = format!(
+            r#"
+orbital Twin {{
+  entity Doc [runtime] {{ id : string! }}
+  trait Knobbed -> Doc {{
+    initial: idle
+    state idle {{ INIT -> idle (set @entity.id (json/stringify @config.k)) }}
+    emits {{ GO -> external {{ n : {ty}! }} }}
+    config {{ k : {ty} = {} }}
+  }}
+}}
+"#,
+            lolo_literal(value)
+        );
+        let (checker_accepts, member) = match orbital_lolo::parse_and_lower_str(&source) {
+            Err(_) => (false, None),
+            Ok(schema) => {
+                let accepts = !validate_comprehensive_without_services(&schema)
+                    .errors
+                    .iter()
+                    .any(|e| e.code == ErrorCode::TraitConfigShapeMismatch);
+                let lowered = serde_json::to_value(&schema).expect("schema serializes");
+                let member = lowered["orbitals"][0]["traits"][0]["emits"][0]["payloadSchema"][0].clone();
+                (accepts, Some(member))
+            }
+        };
+        let Some(member) = member else {
+            // The `.lolo` lowering refused the declaration itself; nothing reaches dispatch.
+            both_refuse += 1;
+            continue;
+        };
+        let field: PayloadField = serde_json::from_value(member.clone())
+            .unwrap_or_else(|e| panic!("`{ty}` payload member {member}: {e}"));
+        let payload = serde_json::from_value(json!({ "n": value.clone() })).expect("payload deserializes");
+        let dispatch_accepts = validate_event_payload("GO", &payload, &[field]).is_empty();
+        if checker_accepts && !dispatch_accepts {
+            disagreements.push(format!("`{ty}` = {value}: the checker accepts what dispatch refuses"));
+        }
+        both_refuse += usize::from(!checker_accepts && !dispatch_accepts);
+        both_accept += usize::from(checker_accepts && dispatch_accepts);
+    }
+    assert!(disagreements.is_empty(), "{disagreements:#?}");
+    assert!(both_refuse >= 8 && both_accept >= 8, "the twin must exercise both sides: refuse {both_refuse}, accept {both_accept}");
+}
+
+/// The same twin for an effect: the payload literal an `emit` carries is checked against the declared event signature by
+/// `orb validate`; dispatch checks the delivered payload against the same signature. Validate-OK never meets a refusal.
+#[test]
+fn an_emit_the_checker_accepts_is_never_refused_by_the_dispatch_validator() {
+    use orbital_compiler::phases::validation::{validate_comprehensive_without_services, ErrorCode};
+    use orbital_core::runtime::payload_validation::validate_event_payload;
+    use orbital_core::schema::PayloadField;
+    use serde_json::json;
+
+    let record = "{ a : string!, n : number }";
+    let enum_ty = r#""on" | "off""#;
+    let samples: Vec<(String, serde_json::Value)> = vec![
+        ("string".into(), json!("x")),
+        ("string".into(), json!(1)),
+        ("string".into(), json!(true)),
+        ("number".into(), json!(1.5)),
+        ("number".into(), json!("1")),
+        ("boolean".into(), json!(false)),
+        ("boolean".into(), json!(0)),
+        ("int".into(), json!(3)),
+        ("int".into(), json!(3.5)),
+        ("string?".into(), json!(null)),
+        ("string?".into(), json!(1)),
+        ("string".into(), json!(null)),
+        ("number".into(), json!(null)),
+        ("[string]".into(), json!(null)),
+        (record.into(), json!(null)),
+        ("[string]".into(), json!(["a"])),
+        ("[string]".into(), json!(["a", 2])),
+        ("[string]".into(), json!([])),
+        ("[string]".into(), json!("a")),
+        ("[number]".into(), json!([1, 2])),
+        ("[number]".into(), json!(["1"])),
+        (record.into(), json!({ "a": "x" })),
+        (record.into(), json!({})),
+        (record.into(), json!({ "a": 1 })),
+        (record.into(), json!({ "a": "x", "z": 1 })),
+        (record.into(), json!("text")),
+        (format!("[{record}]"), json!([{ "a": "x" }, { "a": "y", "n": 2 }])),
+        (format!("[{record}]"), json!([{ "a": "x" }, {}])),
+        (format!("[{record}]"), json!([{ "a": 1 }])),
+        (format!("[{record}]"), json!([{ "a": "x", "n": "s" }])),
+        (format!("({record})?"), json!(null)),
+        (format!("({record})?"), json!({ "a": 1 })),
+        ("{ tags : [string]! }".into(), json!({ "tags": ["a"] })),
+        ("{ tags : [string]! }".into(), json!({ "tags": [1] })),
+        ("Map string number".into(), json!({ "x": 1 })),
+        ("Map string number".into(), json!({ "x": "s" })),
+        (enum_ty.into(), json!("on")),
+        (enum_ty.into(), json!("maybe")),
+        (enum_ty.into(), json!(1)),
+        ("date".into(), json!("2026-10-28")),
+        ("date".into(), json!("tomorrow")),
+        ("datetime".into(), json!("2026-10-28T10:30:00Z")),
+        ("datetime".into(), json!("soon")),
+        ("instant".into(), json!("2026-10-29T02:30:00.000Z")),
+        ("instant".into(), json!("2026-10-28")),
+        ("[[string]]".into(), json!([["a"], ["b"]])),
+        ("[[string]]".into(), json!([["a"], [1]])),
+        ("[\"on\" | \"off\"]".into(), json!(["on", "off"])),
+        ("[\"on\" | \"off\"]".into(), json!(["on", "maybe"])),
+        ("{ mode : \"on\" | \"off\"! }".into(), json!({ "mode": "on" })),
+        ("{ mode : \"on\" | \"off\"! }".into(), json!({ "mode": "maybe" })),
+        ("{ inner : { k : number! }! }".into(), json!({ "inner": { "k": 1 } })),
+        ("{ inner : { k : number! }! }".into(), json!({ "inner": { "k": "s" } })),
+        ("{ inner : { k : number! }! }".into(), json!({ "inner": {} })),
+    ];
+
+    let emit_codes = [
+        ErrorCode::EmitPayloadFieldTypeMismatch,
+        ErrorCode::EmitPayloadMissingRequired,
+        ErrorCode::EmitPayloadExtraField,
+    ];
+    let mut both_refuse = 0;
+    let mut both_accept = 0;
+    let mut disagreements = Vec::new();
+    for (ty, value) in &samples {
+        let source = format!(
+            r#"
+orbital Twin {{
+  entity Doc [runtime] {{ id : string! }}
+  trait Sender -> Doc {{
+    initial: idle
+    state idle {{ INIT -> idle (emit GO {{ n: {} }}) }}
+    emits {{ GO -> external {{ n : {ty}! }} }}
+  }}
+}}
+"#,
+            lolo_literal(value)
+        );
+        let Ok(schema) = orbital_lolo::parse_and_lower_str(&source) else {
+            both_refuse += 1;
+            continue;
+        };
+        let checker_accepts = !validate_comprehensive_without_services(&schema)
+            .errors
+            .iter()
+            .any(|e| emit_codes.contains(&e.code));
+        let lowered = serde_json::to_value(&schema).expect("schema serializes");
+        let member = lowered["orbitals"][0]["traits"][0]["emits"][0]["payloadSchema"][0].clone();
+        let field: PayloadField = serde_json::from_value(member.clone())
+            .unwrap_or_else(|e| panic!("`{ty}` payload member {member}: {e}"));
+        let payload = serde_json::from_value(json!({ "n": value.clone() })).expect("payload deserializes");
+        let dispatch_accepts = validate_event_payload("GO", &payload, &[field]).is_empty();
+        if checker_accepts && !dispatch_accepts {
+            disagreements.push(format!("`{ty}` = {value}: validate accepts the emit, dispatch refuses it"));
+        }
+        both_refuse += usize::from(!checker_accepts && !dispatch_accepts);
+        both_accept += usize::from(checker_accepts && dispatch_accepts);
+    }
+    assert!(disagreements.is_empty(), "{disagreements:#?}");
+    assert!(both_refuse >= 8 && both_accept >= 8, "the twin must exercise both sides: refuse {both_refuse}, accept {both_accept}");
+}
+
+/// A literal `null` written into a position whose declared type is not `T?` is refused by `orb validate` at the three
+/// positions an app writes values: a `set` target, a `persist` row literal, and (above) an emit payload member. The
+/// paired optional declaration accepts it.
+#[test]
+fn a_null_into_a_never_null_set_target_or_row_literal_is_refused_and_an_optional_one_accepts_it() {
+    use orbital_compiler::phases::validation::validate_comprehensive_without_services;
+
+    let findings = |ty: &str, effect: &str| -> Vec<String> {
+        let source = format!(
+            r#"
+orbital Twin {{
+  entity Doc [persistent] {{
+    id : string!
+    code : {ty}
+  }}
+  trait Writer -> Doc {{
+    initial: idle
+    state idle {{ INIT -> idle ({effect}) }}
+  }}
+}}
+"#
+        );
+        let schema = orbital_lolo::parse_and_lower_str(&source).expect("lowers");
+        validate_comprehensive_without_services(&schema)
+            .errors
+            .iter()
+            .map(|e| format!("{:?}: {}", e.code, e.message))
+            .collect()
+    };
+    for (position, effect) in [
+        ("set", "set @entity.code null"),
+        ("persist create", r#"persist create Doc { id: "a", code: null }"#),
+        ("persist update", r#"persist update Doc { id: "a", code: null }"#),
+    ] {
+        let refused = findings("string", effect);
+        assert!(
+            refused.iter().any(|f| f.contains("null") && f.contains("string")),
+            "{position}: a null into `code : string` must be refused naming the field type: {refused:#?}"
+        );
+        let accepted = findings("string?", effect);
+        assert!(accepted.iter().all(|f| !f.contains("null")), "{position}: `code : string?` takes null: {accepted:#?}");
+    }
 }

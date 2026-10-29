@@ -246,3 +246,49 @@ pub fn link_installed_core(project: &Path, start: &Path) {
     fs::create_dir_all(link.parent().expect("link parent")).expect("create node_modules/@almadar");
     std::os::unix::fs::symlink(&data.root, &link).expect("symlink installed @almadar/core");
 }
+
+/// The accessibility role each web pattern declares, keyed by pattern type: the `@role` tag in the JSDoc directly
+/// above its `<Name>Props` interface, found through the patterns registry's `sourceFile`. This is the one declaration
+/// the web conformance test also reads; a pattern without the tag is not listed.
+pub fn declared_pattern_roles(typescript_shell: &Path) -> std::collections::BTreeMap<String, String> {
+    let registry_path = typescript_shell.join("core/src/patterns/patterns-registry.json");
+    let registry: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(&registry_path).unwrap_or_else(|e| panic!("read {}: {e}", registry_path.display())),
+    )
+    .unwrap_or_else(|e| panic!("parse {}: {e}", registry_path.display()));
+    let patterns = registry["patterns"].as_object().expect("patterns-registry.json carries a `patterns` object");
+    let mut roles = std::collections::BTreeMap::new();
+    for (pattern, entry) in patterns {
+        let source_file = entry["sourceFile"].as_str().unwrap_or_else(|| panic!("{pattern}: no sourceFile"));
+        let path = typescript_shell.join("renderers/web/src").join(source_file);
+        let source = fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        if let Some(role) = props_role(&source) {
+            roles.insert(pattern.clone(), role);
+        }
+    }
+    roles
+}
+
+fn props_role(source: &str) -> Option<String> {
+    let mut from = 0;
+    while let Some(at) = source[from..].find("export interface ") {
+        let start = from + at;
+        from = start + "export interface ".len();
+        let name: String = source[from..].chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
+        if !name.ends_with("Props") {
+            continue;
+        }
+        let before = source[..start].trim_end();
+        let Some(body) = before.strip_suffix("*/") else { continue };
+        let Some(open) = body.rfind("/**") else { continue };
+        for line in body[open + 3..].lines() {
+            let tag = line.trim_start().trim_start_matches('*').trim();
+            if let Some(role) = tag.strip_prefix("@role") {
+                if role.is_empty() || role.starts_with(char::is_whitespace) {
+                    return Some(role.trim().to_string());
+                }
+            }
+        }
+    }
+    None
+}

@@ -151,3 +151,93 @@ fn dioxus_declared_stubs_are_exactly_the_unsupported_patterns() {
         "control: a supported pattern is no stub"
     );
 }
+
+/// The native construct that carries each declared web role, per shell: a pattern's renderer must contain at least one.
+/// A role with no entry here fails the test, so a new `@role` cannot ship unmapped.
+const IOS_ROLE_EVIDENCE: &[(&str, &[&str])] = &[
+    ("button", &["Button("]),
+    ("checkbox", &["Toggle(", "accessibilityValue"]),
+    ("img", &["accessibilityLabel"]),
+    ("navigation", &["accessibilityElement(children: .contain)"]),
+    ("progressbar", &["accessibilityValue"]),
+    ("radio", &["accessibilityAddTraits"]),
+    ("radiogroup", &["accessibilityElement(children: .contain)"]),
+    ("separator", &["accessibilityHidden", "Divider("]),
+    ("status", &["accessibilityLabel", "accessibilityElement"]),
+    ("switch", &["Toggle(", "accessibilityValue"]),
+    ("tablist", &["accessibilityAddTraits"]),
+    ("textbox", &["TextField(", "TextEditor(", "AtomTextEntry("]),
+];
+
+const ANDROID_ROLE_EVIDENCE: &[(&str, &[&str])] = &[
+    ("button", &["Button("]),
+    ("checkbox", &["Checkbox(", "Role.Checkbox"]),
+    ("img", &["almadarLabel", "contentDescription"]),
+    ("navigation", &["almadarLandmark"]),
+    ("progressbar", &["progressBarRangeInfo"]),
+    ("radio", &["RadioButton(", "Role.RadioButton"]),
+    ("radiogroup", &["selectableGroup"]),
+    ("separator", &["HorizontalDivider", "VerticalDivider"]),
+    ("status", &["almadarStatus", "liveRegion"]),
+    ("switch", &["Switch(", "Role.Switch"]),
+    ("tablist", &["Role.Tab"]),
+    ("textbox", &["TextField("]),
+];
+
+fn carries_role(evidence: &[(&str, &[&str])], role: &str, source: &str) -> bool {
+    let (_, markers) = evidence
+        .iter()
+        .find(|(r, _)| *r == role)
+        .unwrap_or_else(|| panic!("role `{role}` is declared by a web pattern but has no native evidence entry"));
+    markers.iter().any(|m| source.contains(m))
+}
+
+fn roles_missing(pack: &orbital_core::renderer_packs::RendererPack, ext: &str, evidence: &[(&str, &[&str])]) -> Vec<String> {
+    let shell = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../orbital-shell-typescript");
+    let mut missing = Vec::new();
+    for (pattern, role) in orbital_test_support::declared_pattern_roles(&shell) {
+        let file = format!("{}.{ext}", pattern.replace('-', "_"));
+        let source = pack
+            .sources
+            .iter()
+            .find(|(rel, _)| rel.rsplit('/').next() == Some(file.as_str()))
+            .map(|(_, src)| src.as_str());
+        match source {
+            None => missing.push(format!("{pattern}: no renderer file {file} in the pack")),
+            Some(src) if !carries_role(evidence, &role, src) => missing.push(format!("{pattern} ({role})")),
+            Some(_) => {}
+        }
+    }
+    missing
+}
+
+#[test]
+fn the_role_check_sees_a_renderer_without_the_role() {
+    assert!(!carries_role(IOS_ROLE_EVIDENCE, "status", "Text(\"x\")"));
+    assert!(carries_role(IOS_ROLE_EVIDENCE, "status", "Text(\"x\").accessibilityLabel(\"x\")"));
+    assert!(!carries_role(ANDROID_ROLE_EVIDENCE, "navigation", "Column(modifier = modifier.almadarLabel(\"x\"))"));
+    assert!(carries_role(ANDROID_ROLE_EVIDENCE, "navigation", "Column(modifier = modifier.almadarLandmark(\"x\"))"));
+}
+
+#[test]
+fn declared_roles_include_the_patterns_the_web_conformance_covers() {
+    let shell = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../orbital-shell-typescript");
+    let roles = orbital_test_support::declared_pattern_roles(&shell);
+    assert_eq!(roles.get("switch").map(String::as_str), Some("switch"));
+    assert_eq!(roles.get("alert").map(String::as_str), Some("status"));
+    assert!(roles.len() >= 21, "the web conformance declares 21+ patterns, found {}", roles.len());
+}
+
+/// Every pattern the web declares a role for renders that role natively on iOS.
+#[test]
+fn ios_renderers_carry_the_declared_roles() {
+    let pack = orbital_shell_ios::require_renderer_pack().expect("ios renderer pack");
+    assert_eq!(roles_missing(pack, "swift", IOS_ROLE_EVIDENCE), Vec::<String>::new());
+}
+
+/// Every pattern the web declares a role for renders that role natively on Android.
+#[test]
+fn android_renderers_carry_the_declared_roles() {
+    let pack = orbital_shell_android::require_renderer_pack().expect("android renderer pack");
+    assert_eq!(roles_missing(pack, "kt", ANDROID_ROLE_EVIDENCE), Vec::<String>::new());
+}
