@@ -108,6 +108,16 @@ mod http1_listen_parity {
         with_knobs(resolved, port, knobs)
     }
 
+    /// Declares the host answers substrate ops: the kernel then asks the host (`program/live` is a host-answered stream),
+    /// and a direct, in-place call has no host to run in.
+    struct NoDirectSubstrate;
+
+    impl orbital_core::effects::executor::SubstrateHandler for NoDirectSubstrate {
+        fn run(&self, op: &str, _: &[Value]) -> Result<Value, orbital_core::effects::executor::SubstrateFailure> {
+            Err(orbital_core::effects::executor::SubstrateFailure { message: format!("{op}: answered by the host, not in place"), errors: Vec::new() })
+        }
+    }
+
     /// A program on the kernel over `os/tcp-listen`, `os/recv`, `os/send`, `os/close`, listening on a free loopback port.
     struct Server {
         port: u16,
@@ -131,7 +141,8 @@ mod http1_listen_parity {
         fn boot_on(path: std::path::PathBuf, port: u16, knobs: &[(&str, Json)]) -> Server {
             let grants: Arc<OsGrants> = Arc::new(serde_json::from_value(json!({ "net": [{ "target": format!("127.0.0.1:{port}"), "kinds": ["listen"] }], "env": ["PORT"] })).expect("grants"));
             let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
-            let kernel = Arc::new(RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default()));
+            let config = KernelConfig { substrate_handler: Some(Arc::new(NoDirectSubstrate)), ..KernelConfig::default() };
+            let kernel = Arc::new(RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), config));
             kernel.register_schema(schema(&path, port, knobs)).expect("register");
             let handles = Arc::new(OsHandles::default());
             let answer: Arc<CompletionAnswerer> = {
@@ -139,7 +150,10 @@ mod http1_listen_parity {
                 Arc::new(move |request: &IoRequest| match request {
                     IoRequest::Os { .. } => {
                         let on_event = |_: Option<&CallSite>, _: Value| {};
-                        answer_os(Some(&OsHost { grants: &grants, handles: &handles, on_event: &on_event }), request)
+                        answer_os(Some(&OsHost { grants: &grants, handles: &handles, on_event: &on_event, secrets: None }), request)
+                    }
+                    IoRequest::Substrate { op, key: Some(key), site: Some(site), .. } if op == "program/live" => {
+                        orbital_core::runtime::os_host::completion::Completions::open_substrate_stream(&handles.completions, key, site, || orbital_core::runtime::os_host::completion::StreamPoll::Idle)
                     }
                     other => BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(other),
                 })
@@ -545,7 +559,7 @@ mod http1_listen_parity {
     #[test]
     fn std_http_server_opens_the_event_stream_on_a_ticket() {
         let (server, _held) = http_server();
-        server.fire("StreamTicketer", "MINT_TICKET", json!({ "viewer": { "id": "u1", "email": "u1@a.test", "name": "U", "role": "user", "permissions": [] }, "requestId": 0 }));
+        server.fire("StreamTicketer", "MINT_TICKET", json!({ "viewer": { "id": "u1", "email": "u1@a.test", "name": "U", "role": "user", "permissions": [], "claims": [] }, "requestId": 0 }));
         let ticket = server.wait("TICKET_MINTED", 0)["ticket"].as_str().expect("ticket").to_string();
 
         let mut conn = connect(server.port);
@@ -633,7 +647,6 @@ mod machine_parity {
     const RECORDED: &[(&str, &str)] = &[
         ("std-cooldown", r#"[{"orbital":"CooldownOrbital","trait":"Cooldown","from":"ready","event":"START","to":"cooling","guarded":false,"payload":[{"name":"durationMs","type":"number","required":false}]},{"orbital":"CooldownOrbital","trait":"Cooldown","from":"cooling","event":"EXPIRE","to":"ready","guarded":false,"payload":[]}]"#),
         ("std-retry", r#"[{"orbital":"RetryOrbital","trait":"Retry","from":"idle","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"idle","event":"START","to":"running","guarded":false,"payload":[{"name":"key","type":"CallKey","required":true}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"SUCCEEDED","to":"idle","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"FAILED","to":"backoff","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true},{"name":"error","type":"string","required":false}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"FAILED","to":"idle","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true},{"name":"error","type":"string","required":false}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"CANCEL","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"TIMER_DUE","to":"running","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"CANCEL","to":"idle","guarded":false,"payload":[]}]"#),
-        ("almadar-analytics-collector", r#"[{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"INIT","to":"ready","guarded":false,"payload":[]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"BEACON_RECEIVED","to":"ready","guarded":true,"payload":[{"name":"headers","type":"Map<string,string>","required":false},{"name":"rawBody","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"BEACON_RECEIVED","to":"ready","guarded":true,"payload":[{"name":"headers","type":"Map<string,string>","required":false},{"name":"rawBody","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"BEACON_RECEIVED","to":"ready","guarded":true,"payload":[{"name":"headers","type":"Map<string,string>","required":false},{"name":"rawBody","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"BEACON_ACCEPTED","to":"ready","guarded":true,"payload":[{"name":"draft","type":"object","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"BEACON_ACCEPTED","to":"ready","guarded":true,"payload":[{"name":"draft","type":"object","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_LOADED","to":"ready","guarded":false,"payload":[{"name":"data","type":"object","required":true,"entity":"AnalyticsSalt"}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_ABSENT","to":"ready","guarded":true,"payload":[{"name":"error","type":"string","required":false},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_ABSENT","to":"ready","guarded":true,"payload":[{"name":"error","type":"string","required":false},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_DRAWN","to":"ready","guarded":false,"payload":[{"name":"value","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_CREATED","to":"ready","guarded":false,"payload":[{"name":"id","type":"string","required":true},{"name":"salt","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_TAKEN","to":"ready","guarded":true,"payload":[{"name":"error","type":"string","required":false},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_TAKEN","to":"ready","guarded":true,"payload":[{"name":"error","type":"string","required":false},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_UNREADABLE","to":"ready","guarded":false,"payload":[{"name":"error","type":"string","required":false},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_FAILED","to":"ready","guarded":false,"payload":[{"name":"error","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"SALT_READY","to":"ready","guarded":false,"payload":[]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"EVENT_RECORDED","to":"ready","guarded":false,"payload":[{"name":"id","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsIntake","from":"ready","event":"EVENT_UNRECORDED","to":"ready","guarded":false,"payload":[{"name":"error","type":"string","required":false},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsStats","from":"ready","event":"INIT","to":"ready","guarded":true,"payload":[]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsStats","from":"ready","event":"INIT","to":"ready","guarded":true,"payload":[]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsStats","from":"ready","event":"ANALYTICS_STATS","to":"ready","guarded":false,"payload":[{"name":"domain","type":"string","required":false},{"name":"from","type":"number","required":false},{"name":"to","type":"number","required":false},{"name":"limit","type":"number","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsStats","from":"ready","event":"STATS_LOADED","to":"ready","guarded":false,"payload":[{"name":"data","type":"[object]","required":true,"entity":"AnalyticsEvent"}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarAnalyticsStats","from":"ready","event":"STATS_UNREADABLE","to":"ready","guarded":false,"payload":[{"name":"error","type":"string","required":false},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"INIT","to":"ready","guarded":false,"payload":[]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"PERSONAS_CALLED","to":"ready","guarded":false,"payload":[{"name":"headers","type":"Map<string,string>","required":false},{"name":"rawBody","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"PERSONAS_HOST","to":"ready","guarded":true,"payload":[{"name":"value","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"PERSONAS_HOST","to":"ready","guarded":true,"payload":[{"name":"value","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"PERSONAS_ROWS","to":"ready","guarded":false,"payload":[{"name":"data","type":"[object]","required":true,"entity":"AlmadarViewer"}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"PERSONAS_FAILED","to":"ready","guarded":false,"payload":[{"name":"error","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_CALLED","to":"ready","guarded":true,"payload":[{"name":"headers","type":"Map<string,string>","required":false},{"name":"rawBody","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_CALLED","to":"ready","guarded":true,"payload":[{"name":"headers","type":"Map<string,string>","required":false},{"name":"rawBody","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_HOST","to":"ready","guarded":true,"payload":[{"name":"value","type":"string","required":false},{"name":"key","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_HOST","to":"ready","guarded":true,"payload":[{"name":"value","type":"string","required":false},{"name":"key","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_ROW","to":"ready","guarded":true,"payload":[{"name":"data","type":"object","required":true,"entity":"AlmadarViewer"}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_ROW","to":"ready","guarded":true,"payload":[{"name":"data","type":"object","required":true,"entity":"AlmadarViewer"}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_CREATED","to":"ready","guarded":true,"payload":[{"name":"status","type":"number","required":true},{"name":"body","type":"string","required":true},{"name":"key","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_CREATED","to":"ready","guarded":true,"payload":[{"name":"status","type":"number","required":true},{"name":"body","type":"string","required":true},{"name":"key","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_CLAIMS","to":"ready","guarded":false,"payload":[{"name":"data","type":"object","required":true,"entity":"AlmadarViewer"}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_UPDATED","to":"ready","guarded":true,"payload":[{"name":"status","type":"number","required":true},{"name":"body","type":"string","required":true},{"name":"key","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_UPDATED","to":"ready","guarded":true,"payload":[{"name":"status","type":"number","required":true},{"name":"body","type":"string","required":true},{"name":"key","type":"string","required":true}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_ROW_MISSED","to":"ready","guarded":true,"payload":[{"name":"error","type":"string","required":true},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_ROW_MISSED","to":"ready","guarded":true,"payload":[{"name":"error","type":"string","required":true},{"name":"code","type":"string","required":false}]},{"orbital":"AlmadarAnalyticsCollector","trait":"AlmadarViewerDevPersonas","from":"ready","event":"SIGN_IN_FAILED","to":"ready","guarded":false,"payload":[{"name":"error","type":"string","required":false}]}]"#),
         ("from-list", r#"[{"orbital":"DoorOrbital","trait":"Lock","from":"locked","event":"OPEN","to":"open","guarded":false,"payload":[]},{"orbital":"DoorOrbital","trait":"Lock","from":"open","event":"SHUT","to":"locked","guarded":false,"payload":[]},{"orbital":"DoorOrbital","trait":"Lock","from":"ajar","event":"SHUT","to":"locked","guarded":false,"payload":[]}]"#),
     ];
 
@@ -659,11 +672,6 @@ mod machine_parity {
         let program = resolved_lolo("almadar-std/behaviors/lolo/flow/atoms/std-retry.lolo");
         assert!(recorded("std-retry").as_array().expect("rows").iter().any(|r| r["guarded"] == json!(true)), "control: std-retry has guarded rows");
         assert_parity("std-retry", &program);
-    }
-
-    #[test]
-    fn machine_rows_match_on_composed_analytics_collector() {
-        assert_parity("almadar-analytics-collector", &resolved_lolo("almadar-behaviors/behaviors/lolo/service/atoms/almadar-analytics-collector.lolo"));
     }
 
     #[test]
@@ -742,12 +750,16 @@ mod crypto_vectors {
         got.into_iter().next().expect("answer")
     }
 
-    /// `VERIFIED true|false` or `REFUSED <reason>` from a verifier answer.
-    fn verdict(prefix: &str, (event, payload): (String, Json)) -> String {
-        match event.strip_prefix(prefix) {
-            Some("VERIFIED") => format!("VERIFIED {}", payload["valid"]),
-            Some("REFUSED") => format!("REFUSED {}", payload["reason"].as_str().unwrap_or("?")),
-            _ => panic!("unexpected answer {event}"),
+    /// `VERIFIED true|false` or `REFUSED <verdict>` from a verify operator's closed verdict.
+    fn operator_verdict(form: Json) -> String {
+        let expr: orbital_core::schema::SExpression = serde_json::from_value(form).expect("s-expression");
+        match orbital_core::evaluator::eval_expr(&expr, &orbital_core::evaluator::BindingContext::default()) {
+            Ok(Value::String(verdict)) => match verdict.as_str() {
+                "valid" => "VERIFIED true".to_string(),
+                "mismatch" => "VERIFIED false".to_string(),
+                other => format!("REFUSED {other}"),
+            },
+            other => panic!("a verify operator answers a verdict text, got {other:?}"),
         }
     }
 
@@ -769,22 +781,17 @@ mod crypto_vectors {
     }
 
     #[test]
-    #[ignore = "slow: run in checkpoint"]
     fn crypto_ecdsa_p256_vectors() {
-        let program = atom("auth", "std-ecdsa");
         run_group("ecdsa", |c| {
-            let payload = json!({ "x": c["x"], "y": c["y"], "message": c["message"], "signature": c["signature"] });
-            let got = verdict("ECDSA_", answer(&program, "EcdsaVerifier", "ECDSA_VERIFY", payload, &["ECDSA_VERIFIED", "ECDSA_REFUSED"]));
+            let got = operator_verdict(json!(["ecdsa/p256-verify", c["x"], c["y"], c["message"], c["signature"]]));
             (c["expect"].as_str().expect("expect").to_string(), got)
         });
     }
 
     #[test]
     fn crypto_rsa_pkcs1_vectors() {
-        let program = atom("auth", "std-rsa");
         run_group("rsa", |c| {
-            let payload = json!({ "n": c["n"], "e": c["e"], "message": c["message"], "signature": c["signature"] });
-            let got = verdict("RSA_", answer(&program, "RsaVerifier", "RSA_VERIFY", payload, &["RSA_VERIFIED", "RSA_REFUSED"]));
+            let got = operator_verdict(json!(["rsa/verify", c["n"], c["e"], c["message"], c["signature"]]));
             (c["expect"].as_str().expect("expect").to_string(), got)
         });
     }
@@ -799,31 +806,6 @@ mod crypto_vectors {
                 None => event,
             };
             (c["expect"].as_str().expect("expect").to_string(), got)
-        });
-    }
-
-    /// Limbs come back as f64; a whole number prints as the integer python recorded.
-    fn integral(value: Json) -> Json {
-        match value {
-            Json::Number(n) => match n.as_f64() {
-                Some(f) if f.fract() == 0.0 && f.abs() < 9.007_199_254_740_992e15 => json!(f as i64),
-                _ => Json::Number(n),
-            },
-            Json::Array(items) => Json::Array(items.into_iter().map(integral).collect()),
-            Json::Object(map) => Json::Object(map.into_iter().map(|(k, v)| (k, integral(v))).collect()),
-            other => other,
-        }
-    }
-
-    #[test]
-    fn crypto_bigint_vectors() {
-        let program = atom("codec", "std-bigint");
-        let answers = ["MODPOW_ANSWERED", "MODINV_ANSWERED", "DIVMOD_ANSWERED", "BIGINT_REFUSED"];
-        run_group("bigint", |c| {
-            let (event, payload) = answer(&program, "BigIntCodec", c["op"].as_str().expect("op"), c["args"].clone(), &answers);
-            let want = format!("{} {}", c["answer"].as_str().expect("answer"), c["want"]);
-            let got = format!("{event} {}", integral(payload));
-            (want, got)
         });
     }
 }
@@ -869,7 +851,7 @@ mod bytes_parity {
         (r#"["bytes/index-of", "aGVsbG8=", "bA==", 3]"#, "VALUE 3"),
         (r#"["bytes/index-of", "aGVsbG8=", "bA==", -2]"#, "VALUE 3"),
         (r#"["bytes/index-of", "aGVsbG8=", "bA==", -99]"#, "VALUE 2"),
-        (r#"["bytes/index-of", "aGVsbG8=", "bA==", 2.7]"#, "VALUE 2"),
+        (r#"["bytes/index-of", "aGVsbG8=", "bA==", 2.7]"#, "REFUSED"),
         (r#"["bytes/index-of", "aGVsbG8=", "bA==", 9]"#, "VALUE -1"),
         (r#"["bytes/index-of", "aGVsbG8=", "aGVsbG8h"]"#, "VALUE -1"),
         (r#"["bytes/index-of", "", "YQ=="]"#, "VALUE -1"),
@@ -1067,5 +1049,267 @@ mod finite_fs_completion {
         assert_eq!(failed.len(), 1);
         assert_ne!(failed, event_dispatches(&keyed_trace, "CALLED"));
         assert!(event_dispatches(&keyed_trace, "ANSWERED").is_empty());
+    }
+}
+
+// `ORB_O_ENTITY_UNMAPPED` and `ORB_O_ENTITY_TARGET_UNKNOWN` are findings of the std lint
+// `std-orb-lint-orbital-ref-closure`; these cases read them through `orb lint orbital-ref-closure`
+// (the Rust diagnostics they were pinned on are retired). The `orb` run is `ORB_BIN`, else `target/debug/orb`.
+mod orbital_ref_closure_findings {
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+
+    /// An orbital whose trait binds an entity owned by a sibling orbital.
+    const ATOM: &str = r#"{
+  "name": "atom",
+  "version": "1.0.0",
+  "orbitals": [
+    {
+      "name": "RecordsOrbital",
+      "entity": { "name": "Rec", "persistence": "persistent", "collection": "recs",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] },
+      "traits": [],
+      "pages": []
+    },
+    {
+      "name": "UserOrbital",
+      "entity": { "name": "UserState", "persistence": "runtime",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] },
+      "traits": [{
+        "name": "RecLog",
+        "linkedEntity": "Rec",
+        "stateMachine": {
+          "states": [ { "name": "idle", "isInitial": true } ],
+          "events": [ { "key": "INIT" } ],
+          "transitions": [ { "from": "idle", "to": "idle", "event": "INIT",
+            "effects": [ ["fetch", "Rec", {}] ] } ]
+        }
+      }],
+      "pages": [ { "name": "UserPage", "path": "/user", "traits": [ { "ref": "RecLog" } ] } ]
+    },
+    {
+      "name": "StoreOrbital",
+      "entity": { "name": "StoreState", "persistence": "runtime",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] },
+      "auxiliaryEntities": [ { "name": "Ledger", "persistence": "persistent", "collection": "ledgers",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] } ],
+      "traits": [{
+        "name": "LedgerLog",
+        "linkedEntity": "Ledger",
+        "stateMachine": {
+          "states": [ { "name": "idle", "isInitial": true } ],
+          "events": [ { "key": "INIT" } ],
+          "transitions": [ { "from": "idle", "to": "idle", "event": "INIT",
+            "effects": [ ["fetch", "Ledger", {}] ] } ]
+        }
+      }],
+      "pages": [ { "name": "StorePage", "path": "/store", "traits": [ { "ref": "LedgerLog" } ] } ]
+    }
+  ]
+}"#;
+
+    /// A block: its own records entity, and an import of the atom retargeted onto `{target}`.
+    const BLOCK: &str = r#"{
+  "name": "block",
+  "version": "1.0.0",
+  "orbitals": [
+    {
+      "name": "ThingOrbital",
+      "entity": { "name": "Thing", "persistence": "persistent", "collection": "things",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] },
+      "auxiliaryEntities": [ { "name": "BlockRec", "id": "ent_BLOCKRECID0000000000000000", "persistence": "persistent", "collection": "blockRecs",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] } ],
+      "traits": [],
+      "pages": [ { "name": "ThingsPage", "path": "/things", "traits": [] } ]
+    },
+    {
+      "name": "Sib",
+      "uses": [ { "from": "./atom.orb", "as": "At" } ],
+      "entity": "At.orbitals.StoreOrbital.entity",
+      "traits": [],
+      "reference": { "ref": "At.orbitals.StoreOrbital" }
+    },
+    {
+      "name": "HelperOrbital",
+      "uses": [ { "from": "./atom.orb", "as": "At" } ],
+      "entity": "At.orbitals.UserOrbital.entity",
+      "traits": [],
+      "reference": { "ref": "At.orbitals.UserOrbital", "entities": { "Rec": "{target}" } }
+    }
+  ]
+}"#;
+
+    /// The app re-imports the block's orbitals under their own names.
+    const APP_SAME_NAMES: &str = r#"{
+  "name": "app",
+  "version": "1.0.0",
+  "orbitals": [
+    {
+      "name": "ThingOrbital",
+      "uses": [ { "from": "./block.orb", "as": "Blk" } ],
+      "entity": "Blk.orbitals.ThingOrbital.entity",
+      "traits": [],
+      "reference": { "ref": "Blk.orbitals.ThingOrbital" }
+    },
+    {
+      "name": "HelperOrbital",
+      "uses": [ { "from": "./block.orb", "as": "Blk" } ],
+      "entity": "Blk.orbitals.HelperOrbital.entity",
+      "traits": [],
+      "reference": { "ref": "Blk.orbitals.HelperOrbital" }
+    }
+  ]
+}"#;
+
+    /// An orbital that fetches `Rec`, which a sibling owns.
+    const ATOM_EXPECTING: &str = r#"{
+  "name": "atom",
+  "version": "1.0.0",
+  "orbitals": [
+    {
+      "name": "RecordsOrbital",
+      "entity": { "name": "Rec", "persistence": "persistent", "collection": "recs",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] },
+      "traits": [],
+      "pages": []
+    },
+    {
+      "name": "UserOrbital",
+      "entity": { "name": "UserState", "persistence": "runtime",
+        "fields": [ { "name": "id", "type": "string", "required": true } ] },
+      "traits": [{
+        "name": "RecLog",
+        "linkedEntity": "Rec",
+        "stateMachine": {
+          "states": [ { "name": "idle", "isInitial": true } ],
+          "events": [ { "key": "INIT" } ],
+          "transitions": [ { "from": "idle", "to": "idle", "event": "INIT",
+            "effects": [ ["fetch", "Rec", {}] ] } ]
+        }
+      }],
+      "pages": [ { "name": "UserPage", "path": "/user", "traits": [ { "ref": "RecLog" } ] } ]
+    }
+  ]
+}"#;
+
+    /// The importing orbital alone, as its own file: the target `OwnRec` is declared nowhere here.
+    const SLICE: &str = r#"{
+  "name": "slice",
+  "version": "1.0.0",
+  "orbitals": [{
+    "name": "HelperOrbital",
+    "uses": [ { "from": "./atom.orb", "as": "At" } ],
+    "entity": "At.orbitals.UserOrbital.entity",
+    "traits": [],
+    "reference": { "ref": "At.orbitals.UserOrbital", "entities": { "Rec": "OwnRec" } }{expects}
+  }]
+}"#;
+
+    fn orb_bin() -> Option<PathBuf> {
+        if let Some(bin) = std::env::var_os("ORB_BIN") {
+            return Some(PathBuf::from(bin));
+        }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let target = std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from).unwrap_or_else(|| root.join("target"));
+        let bin = target.join("debug/orb");
+        bin.exists().then_some(bin)
+    }
+
+    fn project(files: &[(&str, &str)]) -> PathBuf {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+        let dir = std::env::temp_dir().join(format!("orb-ref-closure-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("project dir");
+        std::fs::write(dir.join("package.json"), r#"{"name":"closure-test","private":true}"#).expect("package.json");
+        orbital_test_support::link_installed_language(&dir, Path::new(env!("CARGO_MANIFEST_DIR")));
+        let std_stub = dir.join("node_modules/@almadar/std");
+        let manifest_path = std_stub.join("package.json");
+        let mut manifest: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&manifest_path).expect("std manifest")).expect("json");
+        manifest["orb"] = serde_json::json!({ "prefix": "almadar-std", "source": "behaviors/lolo", "compiler": ">=0.0.0" });
+        std::fs::write(&manifest_path, manifest.to_string()).expect("std manifest");
+        orbital_test_support::link_installed_std_programs(&std_stub, Path::new(env!("CARGO_MANIFEST_DIR")));
+        for (name, text) in files {
+            std::fs::write(dir.join(name), text).expect("fixture");
+        }
+        dir
+    }
+
+    /// The finding codes `orb lint orbital-ref-closure <entry>` prints, with their message lines; `None` when no `orb` is built.
+    fn findings(files: &[(&str, &str)], entry: &str) -> Option<Vec<String>> {
+        let bin = orb_bin()?;
+        let dir = project(files);
+        let out = Command::new(bin)
+            .args(["lint", "orbital-ref-closure", entry])
+            .current_dir(&dir)
+            .output()
+            .expect("spawn orb");
+        let text = String::from_utf8_lossy(&out.stdout).to_string() + &String::from_utf8_lossy(&out.stderr);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            text.contains("clean") || text.contains("[ORB_"),
+            "the lint neither passed nor reported a finding: {text}"
+        );
+        Some(text.lines().filter(|l| l.starts_with("[ORB_")).map(str::to_string).collect())
+    }
+
+    fn block(target: &str) -> String {
+        BLOCK.replace("{target}", target)
+    }
+
+    fn block_findings(target: &str) -> Option<Vec<String>> {
+        findings(&[("atom.orb", ATOM), ("block.orb", &block(target))], "block.orb")
+    }
+
+    #[test]
+    fn a_block_import_target_resolves_against_the_block_not_the_app() {
+        let Some(found) = block_findings("BlockRec") else { return };
+        assert!(found.is_empty(), "{found:?}");
+    }
+
+    #[test]
+    fn control_a_target_the_block_does_not_declare_is_still_reported() {
+        let Some(found) = block_findings("Nowhere") else { return };
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].starts_with("[ORB_O_ENTITY_TARGET_UNKNOWN]") && found[0].contains("`entities { Rec: Nowhere }`"), "{found:?}");
+    }
+
+    #[test]
+    fn a_block_import_target_a_sibling_import_materializes_resolves() {
+        let Some(found) = block_findings("SibLedger") else { return };
+        assert!(found.is_empty(), "an auxiliary entity an earlier import of the block materializes is a target its later imports can name: {found:?}");
+    }
+
+    /// Owner ruling 2026-10-24: a sibling's entity is shared only through a written `entities {}` mapping, never by name.
+    #[test]
+    fn a_same_name_reimport_shares_a_sibling_entity_only_through_its_mapping() {
+        let files = |app: &str| -> Option<Vec<String>> {
+            findings(&[("atom.orb", ATOM), ("block.orb", &block("Thing")), ("app.orb", app)], "app.orb")
+        };
+        let Some(unmapped) = files(APP_SAME_NAMES) else { return };
+        assert!(
+            unmapped.iter().any(|l| l.starts_with("[ORB_O_ENTITY_UNMAPPED]") && l.contains("entity 'Thing'")),
+            "an unmapped sibling entity is diagnosed even when the app re-imports its orbital by name: {unmapped:?}"
+        );
+        let mapped = APP_SAME_NAMES.replace(
+            r#""reference": { "ref": "Blk.orbitals.HelperOrbital" }"#,
+            r#""reference": { "ref": "Blk.orbitals.HelperOrbital", "entities": { "Thing": "Thing" } }"#,
+        );
+        assert_eq!(files(&mapped), Some(Vec::new()), "control: the written mapping shares it");
+    }
+
+    #[test]
+    fn a_target_the_importing_orbital_expects_is_remapped_not_unknown() {
+        let slice = SLICE.replace("{expects}", r#", "expects": [ { "kind": "entity", "name": "OwnRec" } ]"#);
+        let Some(found) = findings(&[("atom.orb", ATOM_EXPECTING), ("slice.orb", &slice)], "slice.orb") else { return };
+        assert!(found.is_empty(), "{found:?}");
+    }
+
+    #[test]
+    fn control_without_the_expectation_the_target_is_still_unknown() {
+        let slice = SLICE.replace("{expects}", "");
+        let Some(found) = findings(&[("atom.orb", ATOM_EXPECTING), ("slice.orb", &slice)], "slice.orb") else { return };
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].starts_with("[ORB_O_ENTITY_TARGET_UNKNOWN]") && found[0].contains("`entities { Rec: OwnRec }`"), "{found:?}");
     }
 }

@@ -5,7 +5,7 @@ orbital BoundaryOrbital {
     remaining : number = 2105
     completed : number = 0
   }
-  trait Boundary -> BoundaryRun [integration] {
+  trait Boundary -> BoundaryRun {
     initial: ready
     state ready {
       INIT -> ready

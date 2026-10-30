@@ -7,7 +7,7 @@ orbital BoundaryOrbital {
     completed : number = 0
     requestedPath : string = ""
   }
-  trait Boundary -> BoundaryRun [integration] {
+  trait Boundary -> BoundaryRun {
     initial: ready
     state ready {
       INIT -> ready
