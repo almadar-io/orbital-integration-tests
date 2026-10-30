@@ -530,9 +530,10 @@ orbital Twin {{
     assert!(both_refuse >= 8 && both_accept >= 8, "the twin must exercise both sides: refuse {both_refuse}, accept {both_accept}");
 }
 
-/// A literal `null` written into a position whose declared type is not `T?` is refused by `orb validate` at the three
-/// positions an app writes values: a `set` target, a `persist` row literal, and (above) an emit payload member. The
-/// paired optional declaration accepts it.
+/// A literal `null` written into a position whose declared type is not `T?` is refused by the Rust type checker at the
+/// `set` target (and, above, an emit payload member); the paired optional declaration accepts it. The `persist` row
+/// literals are checked by the std lint atom std-orb-lint-effect-forms, whose goldens `row-literal-null-into-string`
+/// (create and update) and `control-row-literal-null-into-optional` pin the same rule.
 #[test]
 fn a_null_into_a_never_null_set_target_or_row_literal_is_refused_and_an_optional_one_accepts_it() {
     use orbital_compiler::phases::validation::validate_comprehensive_without_services;
@@ -559,11 +560,7 @@ orbital Twin {{
             .map(|e| format!("{:?}: {}", e.code, e.message))
             .collect()
     };
-    for (position, effect) in [
-        ("set", "set @entity.code null"),
-        ("persist create", r#"persist create Doc { id: "a", code: null }"#),
-        ("persist update", r#"persist update Doc { id: "a", code: null }"#),
-    ] {
+    for (position, effect) in [("set", "set @entity.code null")] {
         let refused = findings("string", effect);
         assert!(
             refused.iter().any(|f| f.contains("null") && f.contains("string")),
