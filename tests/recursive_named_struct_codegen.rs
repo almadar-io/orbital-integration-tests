@@ -73,7 +73,7 @@ fn recursive_struct_hoists_a_named_ts_interface() {
         "must hoist a named MenuItem type alias:\n{entities_ts}"
     );
     assert!(
-        entities_ts.contains("subMenu: MenuItem[];") || entities_ts.contains("subMenu?: MenuItem[];"),
+        entities_ts.contains("subMenu: MenuItem[];") || entities_ts.contains("subMenu?: MenuItem[] | null }"),
         "subMenu must reference MenuItem recursively, not degrade to Json/opaque:\n{entities_ts}"
     );
     assert!(

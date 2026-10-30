@@ -100,7 +100,7 @@ fn nominalize_on_hoists_named_interfaces_with_identical_field_content() {
     for (decl, field) in [
         ("export type OrderMeta = {", "label: string;"),
         ("export type OrderMetaGeo = {", "lat: number;"),
-        ("export type OrderMetaTagsItem = {", "name: string;"),
+        ("export type OrderMetaTagsItem = {", "name: string }"),
     ] {
         assert!(on.contains(decl), "flag-on must hoist {decl}:\n{on}");
         assert!(

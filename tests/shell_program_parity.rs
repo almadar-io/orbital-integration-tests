@@ -26,14 +26,20 @@ fn programs() -> Vec<PathBuf> {
     out
 }
 
+/// Client mode for the `.orb` test-schemas: they declare no http endpoint, and a shell program refuses a full or server
+/// generate with no served program. `served-http.lolo` declares one and runs in full mode (`served_parity`).
 fn options() -> GenerateOptions {
+    options_in(orbital_compiler::ShellMode::Client)
+}
+
+fn options_in(mode: orbital_compiler::ShellMode) -> GenerateOptions {
     orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
     let mut compiler = orbital_compiler::CompilerOptions::from_env();
     let start = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test-schemas");
     let user_store = orbital_core::behavior_packages::user_store_dir().unwrap_or_else(|| start.clone());
     compiler.inline.loader_config.packages =
         orbital_core::behavior_packages::discover(&start, &user_store).expect("behavior package discovery");
-    GenerateOptions { compiler, copy_template: true, ..Default::default() }
+    GenerateOptions { compiler, copy_template: true, mode, ..Default::default() }
 }
 
 fn resolved(path: &Path, options: &GenerateOptions) -> orbital_core::OrbitalSchema {
@@ -186,4 +192,49 @@ fn control_the_program_describes_the_typescript_shell() {
     assert_eq!(description.name, "typescript");
     assert!(description.ir_versions.accepts(IR_VERSION));
     assert!(description.needs_resolved);
+}
+
+/// A program that declares a served http endpoint, generated in full mode: the shell program is sent the served program
+/// and must write the app the linked shell wrote.
+#[test]
+fn a_served_program_in_full_mode_is_written_as_the_linked_shell_wrote_it() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test-schemas/served-http.lolo");
+    let options = options_in(orbital_compiler::ShellMode::Full);
+    let base = std::env::temp_dir().join(format!("orb-shell-served-parity-{}", std::process::id()));
+    let (a, b) = (base.join("linked/app"), base.join("program/app"));
+    let served = {
+        let schema = orbital_compiler::phases::parse_file(&path).expect("parse");
+        orbital_compiler::phases::resolve_compiled_program_with_path(schema, &options.compiler, Some(&path)).expect("resolve")
+    };
+    let backend = TypeScriptBackend { browser_schema: Some(served.clone()), served_schema: Some(served.clone()), ..TypeScriptBackend::default() };
+    generate_from_file_with_source(&path, &path, &a, &express_shell(), &backend, &options).expect("linked generate");
+    orbital_core::project::copy_locales(&path, &a).expect("copy locales");
+    generate_from_file_with_source_using(&path, &path, &b, &options, |module, out| {
+        let request = GenerateRequest {
+            ir_version: IR_VERSION,
+            module: module.clone(),
+            resolved: Some(served.clone()),
+            served: Some(served.clone()),
+            source_path: Some(path.clone()),
+            write: orbital_core::project::WriteOptions {
+                copy_template: options.copy_template,
+                clean: options.clean,
+                mode: options.mode,
+                service_runtimes: options.compiler.service_runtimes.clone(),
+            },
+            options: BTreeMap::new(),
+        };
+        let wire: GenerateRequest = serde_json::from_str(&serde_json::to_string(&request).unwrap()).unwrap();
+        match handle(&TypeScriptProgram, &wire, out) {
+            ShellReply::Ok(response) => Ok(response),
+            ShellReply::Error(failure) => Err(GenerateError::Backend(failure.message)),
+        }
+    })
+    .expect("program generate");
+    let (ta, tb) = (tree(&a), tree(&b));
+    assert!(ta.keys().any(|k| k.starts_with("packages/server")), "a full generate writes the server: {:?}", ta.keys().collect::<Vec<_>>());
+    let keys: BTreeSet<&String> = ta.keys().chain(tb.keys()).collect();
+    let differing: Vec<&String> = keys.into_iter().filter(|k| ta.get(*k) != tb.get(*k)).collect();
+    assert!(differing.is_empty(), "the program wrote a different served app: {differing:?}");
+    let _ = std::fs::remove_dir_all(&base);
 }

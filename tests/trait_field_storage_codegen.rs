@@ -51,7 +51,7 @@ fn a_trait_entity_field_is_typed_as_embed_stored_value_or_null() {
         "{types}"
     );
     assert!(types.contains("interface TraitFieldStored {"), "{types}");
-    assert!(types.contains("widget?: TraitFieldRef;"), "{types}");
+    assert!(types.contains("widget?: TraitFieldRef | null;"), "{types}");
 }
 
 #[test]

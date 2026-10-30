@@ -343,6 +343,10 @@ const EXEC_RULES_PROVEN_ELSEWHERE: &[(&str, &str)] = &[
         "EXEC-SEED-6",
         "orbital-shell-typescript hosts/node/test/runtime-parity/kernel-engine.test.ts",
     ),
+    (
+        "EXEC-LOAD-1",
+        "orbital-compiler phases/mod.rs resolving_stamps_the_program_and_a_resolved_program_is_returned_unchanged_without_inlining and a_program_resolved_under_another_type_contract_is_refused",
+    ),
 ];
 
 /// EXEC rules orbital-core does not cite yet (P-014 Phase 3). Shrinks only: citing one makes this gate
