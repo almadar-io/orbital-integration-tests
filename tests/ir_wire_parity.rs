@@ -4,10 +4,10 @@
 
 use orbital_core::generate::{Backend, GeneratedOutput, ShellMode};
 use orbital_core::ir::OirModule;
-use std::path::{Path, PathBuf};
+#[path = "common/test_schemas.rs"]
+mod test_schemas;
 
-/// Programs that no longer load, by name and reason — never skipped silently.
-const STALE: &[(&str, &str)] = &[("08-game.orb", "uses std-gameflow, which std no longer has")];
+use std::path::{Path, PathBuf};
 
 fn orb_files(dir: &Path) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = std::fs::read_dir(dir)
@@ -24,7 +24,6 @@ fn programs() -> Vec<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test-schemas");
     let mut out = orb_files(&root);
     out.extend(orb_files(&root.join("native-conformance/features")));
-    out.retain(|p| !STALE.iter().any(|(name, _)| p.file_name().is_some_and(|f| f == *name)));
     out
 }
 
@@ -42,6 +41,7 @@ fn compile(path: &Path) -> OirModule {
         },
         ..Default::default()
     };
+    test_schemas::assert_valid(path, &options);
     orbital_compiler::phases::compile_file(path, &options)
         .unwrap_or_else(|e| panic!("{} does not compile: {e}", path.display()))
 }

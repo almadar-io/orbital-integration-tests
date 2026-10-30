@@ -9,9 +9,10 @@ use orbital_core::shell_protocol::{handle, GenerateRequest, ShellProgram, ShellR
 use orbital_shell_typescript::shell_program::TypeScriptProgram;
 use orbital_shell_typescript::{express_shell, TypeScriptBackend};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+#[path = "common/test_schemas.rs"]
+mod test_schemas;
 
-const STALE: &[&str] = &["08-game.orb"];
+use std::path::{Path, PathBuf};
 
 fn programs() -> Vec<PathBuf> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test-schemas");
@@ -20,7 +21,6 @@ fn programs() -> Vec<PathBuf> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("orb"))
-        .filter(|p| !STALE.iter().any(|s| p.file_name().is_some_and(|f| f == *s)))
         .collect();
     out.sort();
     out
@@ -43,6 +43,7 @@ fn options_in(mode: orbital_compiler::ShellMode) -> GenerateOptions {
 }
 
 fn resolved(path: &Path, options: &GenerateOptions) -> orbital_core::OrbitalSchema {
+    test_schemas::assert_valid(path, &options.compiler);
     let schema = orbital_compiler::phases::parse_file(path).expect("parse");
     orbital_compiler::phases::resolve_compiled_program_with_path(schema, &options.compiler, Some(path)).expect("resolve")
 }
