@@ -487,3 +487,175 @@ fn every_exec_rule_is_cited_by_a_core_test_or_listed_with_its_reason() {
         "a rule is listed more than once: {twice:?}"
     );
 }
+
+/// P-017 T4: every `#[ignore]` in the workspace names the recorded gap that keeps the test off
+/// (a `G-...-NNN` code in the attribute's reason or the comment lines right above it). A test
+/// that is ignored with no gap is a red nobody tracks. `IGNORES_WITHOUT_GAP` is the ratchet:
+/// an uncoded ignore not listed fails, and so does a listed one that now carries a code or is gone.
+const IGNORES_WITHOUT_GAP: &[&str] = &[
+    "orbital-cli/tests/compat_differential.rs::compat_differential_corpus",
+    "orbital-cli/tests/live_registry.rs::live_std_corpus_validates_real_organisms",
+    "orbital-cli/tests/native_shell_resolved_schema.rs::android_compile_embeds_resolved_schema_resource",
+    "orbital-cli/tests/native_shell_resolved_schema.rs::ios_compile_embeds_resolved_schema_resource",
+    "orbital-compiler/src/phases/validation/expressions/effect/operator_args.rs::k2_census_provable_argument_positions",
+    "orbital-compiler/tests/pattern_field_ref_validation.rs::data_grid_image_field_invalid_scalar_warns",
+    "orbital-compiler/tests/pattern_field_ref_validation.rs::filter_group_with_mixed_fields_warns_per_bad_element",
+    "orbital-compiler/tests/pattern_field_ref_validation.rs::filter_group_with_typo_warns",
+    "orbital-compiler/tests/std_behavior_use.rs::cart_effects_override_replaces_transition_effects",
+    "orbital-core/crates/base/src/contract/identity.rs::print_process_seed",
+    "orbital-core/crates/base/src/program/schema/sexpr/tests.rs::interning_hit_rate_on_a_resolved_program",
+    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::browse_wire_sizes",
+    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::frame_wire_dump",
+    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::profile_loop",
+    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::stage_breakdown",
+    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::tick_alloc_sites",
+    "orbital-core/tests/bench_trace_parity.rs::r0_trace_equals_b1_on_audit_provenance_and_visit_key",
+    "orbital-core/tests/bench_trace_parity.rs::r0_trace_equals_b1_on_every_fixture",
+    "orbital-ffi/tests/bench_trace_parity.rs::r1_trace_differs_from_r0_where_the_circuit_has_server_effects",
+    "orbital-ffi/tests/bench_trace_parity.rs::r1_trace_equals_r0_on_audit_provenance_and_visit_key",
+    "orbital-lolo/tests/lower.rs::fixture_16_use_imports",
+    "orbital-lolo/tests/lower.rs::fixture_18_type_trait_param",
+    "orbital-lolo/tests/lower.rs::fixture_21_type_orbital_shape",
+    "orbital-lolo/tests/lower.rs::fixture_22_crud_orbital_typed",
+    "orbital-lolo/tests/unlower_round_trip.rs::corpus_print_of_parse_divergence_by_cause",
+    "orbital-lolo/tests/unlower_round_trip.rs::dump_printed",
+    "orbital-lolo/tests/use_imports_inline.rs::lolo_use_imports_lower_to_inlinable_schema",
+    "orbital-shell-rust/renderers/dioxus/tests/capture.rs::look",
+    "orbital-shell-typescript/tests/codegen_typecheck.rs::codegen_typecheck_stub",
+];
+
+fn names_gap_code(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i + 2 < bytes.len() {
+        if &bytes[i..i + 2] == b"G-" && (i == 0 || !bytes[i - 1].is_ascii_alphanumeric()) {
+            let end = bytes[i..]
+                .iter()
+                .position(|b| !(b.is_ascii_uppercase() || b.is_ascii_digit() || *b == b'-'))
+                .map_or(bytes.len(), |p| i + p);
+            let token = &text[i..end];
+            let tail = token.rsplit('-').next().unwrap_or("");
+            if token.matches('-').count() >= 2
+                && !tail.is_empty()
+                && tail.bytes().all(|b| b.is_ascii_digit())
+            {
+                return true;
+            }
+            i = end;
+        } else {
+            i += 1;
+        }
+    }
+    false
+}
+
+/// `(workspace-relative path, fn name, whether a gap code is named)` for every `#[ignore` attribute in `source`.
+fn ignore_sites(path: &str, source: &str) -> Vec<(String, bool)> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut sites = Vec::new();
+    let mut n = 0;
+    while n < lines.len() {
+        let trimmed = lines[n].trim_start();
+        if !trimmed.starts_with("#[ignore") {
+            n += 1;
+            continue;
+        }
+        let mut attribute = String::new();
+        let mut last = n;
+        while last < lines.len() {
+            attribute.push_str(lines[last]);
+            attribute.push('\n');
+            if lines[last].trim_end().ends_with(']') {
+                break;
+            }
+            last += 1;
+        }
+        let mut above = String::new();
+        let mut k = n;
+        while k > 0 {
+            let prev = lines[k - 1].trim_start();
+            if prev.starts_with("//") || prev.starts_with("#[") {
+                above.push_str(prev);
+                above.push('\n');
+                k -= 1;
+            } else {
+                break;
+            }
+        }
+        let name = lines[last + 1..]
+            .iter()
+            .find_map(|l| {
+                let t = l.trim_start();
+                let rest = t.strip_prefix("fn ").or_else(|| t.strip_prefix("pub fn "))?;
+                Some(rest.split(|c: char| !(c.is_alphanumeric() || c == '_')).next()?.to_string())
+            })
+            .unwrap_or_else(|| "?".to_string());
+        sites.push((
+            format!("{path}::{name}"),
+            names_gap_code(&attribute) || names_gap_code(&above),
+        ));
+        n = last + 1;
+    }
+    sites
+}
+
+fn rust_sources(dir: &Path, root: &Path, out: &mut Vec<(String, String)>) {
+    for entry in fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_dir() {
+            if name != "target" && name != "node_modules" && name != ".git" {
+                rust_sources(&path, root, out);
+            }
+        } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+            if let Ok(text) = fs::read_to_string(&path) {
+                let rel = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().into_owned();
+                out.push((rel, text));
+            }
+        }
+    }
+}
+
+#[test]
+fn every_ignored_test_names_a_gap_code() {
+    let crates = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("crates dir").to_path_buf();
+    let mut files = Vec::new();
+    rust_sources(&crates, &crates, &mut files);
+    let mut uncoded = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    for (path, text) in &files {
+        for (site, coded) in ignore_sites(path, text) {
+            seen.insert(site.clone());
+            if !coded {
+                uncoded.push(site);
+            }
+        }
+    }
+    uncoded.sort();
+    let new: Vec<&String> = uncoded.iter().filter(|s| !IGNORES_WITHOUT_GAP.contains(&s.as_str())).collect();
+    assert!(
+        new.is_empty(),
+        "an #[ignore] with no gap code (name the G-... gap in its reason, or fix the test): {new:#?}"
+    );
+    let stale: Vec<&&str> = IGNORES_WITHOUT_GAP
+        .iter()
+        .filter(|s| !uncoded.iter().any(|u| u == **s))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "listed in IGNORES_WITHOUT_GAP but now coded, fixed or gone, delete from the list: {stale:#?}"
+    );
+}
+
+#[test]
+fn ignore_scan_reads_codes_from_reasons_and_comments() {
+    let source = "\
+    // Tracked by G-ORB-446.\n    #[test]\n    #[ignore]\n    fn above() {}\n\n    #[test]\n    #[ignore = \"lands with G-ORB-487 (absolute-path ruling)\"]\n    fn reason() {}\n\n    #[test]\n    #[ignore = \"long reason \\\n               continues, G-STD-169\"]\n    fn wrapped() {}\n\n    #[test]\n    #[ignore = \"needs a fixture\"]\n    fn bare() {}\n\n    #[test]\n    #[ignore = \"see AG-ORB-1 and G-ORB\"]\n    fn near_miss() {}\n";
+    let sites = ignore_sites("t.rs", source);
+    let find = |n: &str| sites.iter().find(|(s, _)| s == &format!("t.rs::{n}")).map(|(_, c)| *c);
+    assert_eq!(find("above"), Some(true));
+    assert_eq!(find("reason"), Some(true));
+    assert_eq!(find("wrapped"), Some(true));
+    assert_eq!(find("bare"), Some(false));
+    assert_eq!(find("near_miss"), Some(false));
+}
