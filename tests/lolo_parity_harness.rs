@@ -1666,7 +1666,7 @@ mod typed_boundary_differential {
         let schema = resolved("refused-boundaries");
         assert!(!findings(&schema).is_empty(), "control: validate refuses this program");
         let report = drive_program("refused-boundaries", &schema);
-        for event in ["NULL_OPERAND", "MISMATCH"] {
+        for event in ["NULL_OPERAND", "MISMATCH", "NULLABLE_SET"] {
             assert!(
                 report.disagreements.iter().any(|d| d.event == event),
                 "the harness must detect a run-time refusal on {event}; detected: {:?}",
