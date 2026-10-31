@@ -1,0 +1,38 @@
+app tb-unions [
+  version: "1.0.0",
+  description: "A closed tagged union as an event payload, narrowed by a tag test, and an optional record."
+]
+
+orbital UnionOrbital {
+  type Shape = { kind : "circle", r : number! } | { kind : "rect", w : number!, h : number! }
+  type Frame = { title : string!, subtitle : string? }
+
+  entity Easel [runtime] {
+    id : string!
+    area : number = 0
+    caption : string = ""
+  }
+
+  trait Union -> Easel [client] {
+    initial: idle
+
+    state idle {
+      INIT -> idle
+        (render-ui main { type: typography, content: "unions", variant: h3 })
+
+      DRAW -> idle
+        (let ((s : Shape ?shape))
+          (set @entity.area (if (= @s.kind "circle") (* @s.r @s.r) (* @s.w @s.h))))
+
+      CAPTION -> idle
+        (set @entity.caption (default ?frame.subtitle ?frame.title))
+    }
+
+    listens {
+      DRAW { shape : Shape! }
+      CAPTION { frame : Frame! }
+    }
+  }
+
+  page "/unions" as UnionPage -> Union
+}

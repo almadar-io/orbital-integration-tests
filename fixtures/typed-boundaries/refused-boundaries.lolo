@@ -1,0 +1,38 @@
+app tb-refused-boundaries [
+  version: "1.0.0",
+  description: "Control: ill-typed programs validate refuses; the harness must see the kernel refuse them too."
+]
+
+orbital RefusedOrbital {
+  entity Cell [runtime] {
+    id : string!
+    out : string = ""
+    size : number = 0
+  }
+
+  trait Refused -> Cell [client] {
+    initial: idle
+
+    state idle {
+      INIT -> idle
+        (render-ui main { type: typography, content: "refused", variant: h3 })
+
+      NULL_OPERAND -> idle
+        (set @entity.out (str/upper ?note))
+
+      MISMATCH -> idle
+        (set @entity.size (+ ?count ?label))
+
+      NULLABLE_SET -> idle
+        (set @entity.out ?note)
+    }
+
+    listens {
+      NULL_OPERAND { note : string? }
+      MISMATCH { count : number!, label : string! }
+      NULLABLE_SET { note : string? }
+    }
+  }
+
+  page "/refused" as RefusedPage -> Refused
+}

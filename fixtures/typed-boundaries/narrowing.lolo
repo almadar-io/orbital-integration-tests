@@ -1,0 +1,68 @@
+app tb-narrowing [
+  version: "1.0.0",
+  description: "Nullable payload fields narrowed by guards, default, if, let and an emit that carries the narrowed value."
+]
+
+orbital NarrowOrbital {
+  type Narrowed = Event { text : string!, size : number! } "A narrowed value was forwarded."
+
+  entity Cell [runtime] {
+    id : string!
+    out : string = ""
+    size : number = 0
+    seen : number = 0
+  }
+
+  trait Narrow -> Cell [client] {
+    initial: idle
+
+    state idle {
+      INIT -> idle
+        (render-ui main { type: typography, content: "narrowing", variant: h3 })
+
+      GUARDED -> idle when (!= ?note null)
+        (set @entity.out ?note)
+
+      DEFAULTED -> idle
+        (set @entity.size (default ?n 0))
+        (set @entity.out (default ?note ""))
+
+      IFNARROW -> idle
+        (set @entity.out (if (!= ?note null) (str/upper ?note) "none"))
+
+      LETBIND -> idle
+        (let ((m : number (default ?n 1)))
+          (set @entity.size (* @m 2)))
+
+      FORWARD -> idle
+        (emit Narrowed { text: (default ?note "-"), size: (default ?n 0) })
+
+      BOTH -> idle when (and (!= ?note null) (!= ?n null))
+        (set @entity.out (default ?note ""))
+        (set @entity.size (default ?n 0))
+
+      Narrowed -> idle
+        (set @entity.seen (+ @entity.seen 1))
+        (set @entity.out ?text)
+        (set @entity.size ?size)
+    }
+
+    emits {
+      Narrowed -> internal {
+        text : string!
+        size : number!
+      }
+    }
+
+    listens {
+      GUARDED { note : string? }
+      DEFAULTED { n : number?, note : string? }
+      IFNARROW { note : string? }
+      LETBIND { n : number? }
+      FORWARD { n : number?, note : string? }
+      BOTH { n : number?, note : string? }
+    }
+  }
+
+  page "/narrowing" as NarrowPage -> Narrow
+}

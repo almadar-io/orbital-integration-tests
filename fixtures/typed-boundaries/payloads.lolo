@@ -1,0 +1,57 @@
+app tb-payloads [
+  version: "1.0.0",
+  description: "Typed event payload boundaries: required, optional, nullable, records, arrays, unions."
+]
+
+orbital PayloadOrbital {
+  type Point = { x : number!, y : number! }
+  type Mode = "fast" | "slow"
+
+  entity Slot [runtime] {
+    id : string!
+    count : number = 0
+    label : string = ""
+    note : string? = null
+    tags : [string] = []
+    origin : Point = { x: 0, y: 0 }
+    mode : Mode = "fast"
+    total : number = 0
+  }
+
+  trait Payloads -> Slot [client] {
+    initial: idle
+
+    state idle {
+      INIT -> idle
+        (render-ui main { type: typography, content: "payloads", variant: h3 })
+
+      SET_SCALARS -> idle
+        (set @entity.count ?count)
+        (set @entity.label (default ?label "none"))
+        (set @entity.note ?note)
+
+      SET_RECORD -> idle
+        (set @entity.origin ?origin)
+
+      SET_TAGS -> idle
+        (set @entity.tags ?tags)
+        (set @entity.total (array/len ?tags))
+
+      SET_MODE -> idle
+        (set @entity.mode ?mode)
+
+      SUM -> idle
+        (set @entity.total (array/reduce ?values 0 (fn (acc v) (+ @acc @v))))
+    }
+
+    listens {
+      SET_SCALARS { count : number!, label : string?, note : string? }
+      SET_RECORD { origin : Point! }
+      SET_TAGS { tags : [string]! }
+      SET_MODE { mode : Mode! }
+      SUM { values : [number]! }
+    }
+  }
+
+  page "/payloads" as PayloadsPage -> Payloads
+}

@@ -1313,3 +1313,366 @@ mod orbital_ref_closure_findings {
         assert!(found[0].starts_with("[ORB_O_ENTITY_TARGET_UNKNOWN]") && found[0].contains("`entities { Rec: OwnRec }`"), "{found:?}");
     }
 }
+
+// A4 differential test: a program validate accepts must never meet a run-time type refusal. Every transition of every
+// accepted program in `fixtures/typed-boundaries` is driven on the kernel with payloads generated from the declared
+// payload schema; a refused dispatch, a failed effect or an effect error is a disagreement between validate and the kernel.
+mod typed_boundary_differential {
+    use orbital_core::runtime::resumable::{drive_blocking, BlockingHost, IoRequest};
+    use orbital_core::runtime::{EntitySource, InMemoryEntityCache, KernelConfig, RuntimeKernel};
+    use orbital_core::{OrbitalSchema, RuntimeEnvironment, Value};
+    use serde_json::{json, Map, Value as Json};
+    use std::collections::{BTreeMap, BTreeSet, VecDeque};
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    const CORPUS: &[&str] = &["payloads", "narrowing", "fetched", "unions"];
+    const CONTROLS: &[&str] = &["refused-boundaries"];
+    const FILLS: [Fill; 4] = [Fill::Minimal, Fill::Full, Fill::Boundary, Fill::AltVariant];
+    const DEPTH_LIMIT: usize = 6;
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Fill {
+        Minimal,
+        Full,
+        Boundary,
+        AltVariant,
+    }
+
+    struct Disagreement {
+        program: String,
+        trait_name: String,
+        state: String,
+        event: String,
+        fill: Fill,
+        payload: Json,
+        refusal: String,
+    }
+
+    impl std::fmt::Display for Disagreement {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "{} / {} / {} --{}--> payload {} ({:?}): {}",
+                self.program, self.trait_name, self.state, self.event, self.payload, self.fill, self.refusal
+            )
+        }
+    }
+
+    fn path_of(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/typed-boundaries").join(format!("{name}.lolo"))
+    }
+
+    fn resolved(name: &str) -> OrbitalSchema {
+        orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
+        let path = path_of(name);
+        let options = orbital_compiler::CompilerOptions::from_env();
+        let schema = orbital_compiler::phases::parse_file(&path).unwrap_or_else(|e| panic!("{name} does not parse: {e}"));
+        orbital_compiler::phases::resolve_compiled_program_with_path(schema, &options, Some(&path)).unwrap_or_else(|e| panic!("{name} does not resolve: {e}"))
+    }
+
+    fn findings(schema: &OrbitalSchema) -> Vec<String> {
+        let result = orbital_compiler::phases::validation::validate_comprehensive_without_services(schema);
+        result.errors.iter().chain(result.warnings.iter()).map(|f| format!("{f:?}")).collect()
+    }
+
+    fn field_name(field: &Json) -> &str {
+        field["name"].as_str().unwrap_or("")
+    }
+
+    fn fields_of(list: &Json) -> Vec<Json> {
+        match list {
+            Json::Array(items) => items.clone(),
+            Json::Object(map) => map.iter().map(|(name, def)| {
+                let mut def = def.clone();
+                if def.get("name").is_none() {
+                    def["name"] = json!(name);
+                }
+                def
+            }).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    struct Types<'a> {
+        orbital_types: &'a Json,
+        entities: &'a BTreeMap<String, Vec<Json>>,
+    }
+
+    impl Types<'_> {
+        fn value(&self, field: &Json, fill: Fill, depth: usize) -> Json {
+            assert!(depth <= DEPTH_LIMIT, "generator depth limit reached at field {}: a recursive declared type needs a stated rule", field_name(field));
+            let boundary = fill == Fill::Boundary;
+            if let Some(values) = field["values"].as_array().filter(|v| !v.is_empty()) {
+                return if boundary { values[values.len() - 1].clone() } else { values[0].clone() };
+            }
+            let ty = field["type"].as_str().unwrap_or_else(|| panic!("field {} declares no type: {field}", field_name(field)));
+            match ty {
+                "string" => json!(if boundary { "" } else { "text" }),
+                "number" | "int" | "float" => json!(if boundary { 0 } else { 1 }),
+                "boolean" | "bool" => json!(!boundary),
+                "union" => self.union(field, fill, depth),
+                "relation" => {
+                    let target = field["relation"]["entity"].as_str().unwrap_or_else(|| panic!("relation field {} names no entity", field_name(field)));
+                    let row = self.value(&json!({ "name": field_name(field), "type": target }), fill, depth + 1);
+                    if field["relation"]["cardinality"] == json!("many") { json!([row]) } else { row }
+                }
+                "object" => Json::Object(self.record(&fields_of(&field["properties"]), fill, depth + 1)),
+                _ if ty.starts_with('[') || ty == "array" => {
+                    let item = field.get("items").unwrap_or_else(|| panic!("array field {} declares no items", field_name(field)));
+                    match fill {
+                        Fill::Full | Fill::AltVariant => json!([self.value(item, fill, depth + 1), self.value(item, fill, depth + 1)]),
+                        Fill::Minimal | Fill::Boundary => json!([]),
+                    }
+                }
+                _ => {
+                    if let Some(shape) = self.orbital_types.get(ty).and_then(Json::as_array) {
+                        if shape.len() == 1 && field_name(&shape[0]).is_empty() {
+                            let mut inner = shape[0].clone();
+                            inner["name"] = field["name"].clone();
+                            return self.value(&inner, fill, depth + 1);
+                        }
+                        return Json::Object(self.record(shape, fill, depth + 1));
+                    }
+                    if let Some(entity) = self.entities.get(ty) {
+                        return Json::Object(self.record(entity, fill, depth + 1));
+                    }
+                    panic!("the payload generator has no rule for declared type `{ty}` (field {})", field_name(field))
+                }
+            }
+        }
+
+        fn union(&self, field: &Json, fill: Fill, depth: usize) -> Json {
+            let variants = fields_of(&field["properties"]);
+            assert!(!variants.is_empty(), "union field {} has no variants", field_name(field));
+            let chosen = if fill == Fill::AltVariant { &variants[variants.len() - 1] } else { &variants[0] };
+            let mut record = Map::new();
+            for member in fields_of(&chosen["properties"]) {
+                let discriminant = member["values"].as_array().is_some_and(|v| v.len() == 1);
+                if discriminant || member["required"] == json!(true) || fill != Fill::Minimal {
+                    record.insert(field_name(&member).to_string(), self.value(&member, fill, depth + 1));
+                }
+            }
+            Json::Object(record)
+        }
+
+        fn record(&self, fields: &[Json], fill: Fill, depth: usize) -> Map<String, Json> {
+            let mut record = Map::new();
+            for field in fields {
+                let required = field["required"] == json!(true);
+                if fill == Fill::Minimal && !required {
+                    continue;
+                }
+                let nullable = field["nullable"] == json!(true);
+                let value = if nullable && fill == Fill::Boundary { Json::Null } else { self.value(field, fill, depth) };
+                record.insert(field_name(field).to_string(), value);
+            }
+            record
+        }
+    }
+
+    fn boot(schema: &OrbitalSchema) -> (RuntimeKernel, Arc<dyn EntitySource>) {
+        let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
+        let kernel = RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default());
+        kernel.register_schema(schema.clone()).unwrap_or_else(|e| panic!("register: {e:?}"));
+        (kernel, store)
+    }
+
+    fn dispatch(kernel: &RuntimeKernel, store: &Arc<dyn EntitySource>, trait_name: &str, event: &str, payload: &Json) -> Result<(), String> {
+        let value: Value = serde_json::from_value(payload.clone()).map_err(|e| format!("payload does not convert: {e}"))?;
+        let progress = kernel.start_dispatch(trait_name, None, event, value, None, None).map_err(|e| format!("dispatch refused: {e}"))?;
+        let answer = |request: &IoRequest| BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(request);
+        let outcomes = drive_blocking(kernel, progress, &answer).map_err(|e| format!("dispatch failed: {e}"))?;
+        let mut refusals = Vec::new();
+        for (name, outcome) in &outcomes {
+            if let Some(failure) = &outcome.failure {
+                refusals.push(format!("{name}: step failure: {failure}"));
+            }
+            for result in &outcome.effect_results {
+                if let Some(error) = &result.error {
+                    refusals.push(format!("{name}: effect error: {error}"));
+                }
+            }
+            for run in &outcome.effect_runs {
+                if let Some(error) = &run.error {
+                    refusals.push(format!("{name}: effect run error: {error}"));
+                }
+            }
+        }
+        if refusals.is_empty() { Ok(()) } else { Err(refusals.join("; ")) }
+    }
+
+    struct Edge {
+        from: Vec<String>,
+        to: String,
+        event: String,
+    }
+
+    struct Machine {
+        trait_name: String,
+        initial: String,
+        edges: Vec<Edge>,
+        events: BTreeMap<String, Json>,
+        types: Json,
+    }
+
+    fn machines(program: &Json) -> (Vec<Machine>, BTreeMap<String, Vec<Json>>) {
+        let mut entities = BTreeMap::new();
+        for orbital in program["orbitals"].as_array().expect("orbitals") {
+            for entity in std::iter::once(&orbital["entity"]).chain(orbital["auxiliaryEntities"].as_array().into_iter().flatten()) {
+                if let Some(name) = entity["name"].as_str() {
+                    entities.insert(name.to_string(), fields_of(&entity["fields"]));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for orbital in program["orbitals"].as_array().expect("orbitals") {
+            for tr in orbital["traits"].as_array().into_iter().flatten() {
+                let Some(sm) = tr.get("stateMachine") else { continue };
+                let initial = sm["states"].as_array().expect("states").iter().find(|s| s["isInitial"] == json!(true)).and_then(|s| s["name"].as_str()).expect("an initial state").to_string();
+                let edges = sm["transitions"].as_array().expect("transitions").iter().map(|t| Edge {
+                    from: match &t["from"] {
+                        Json::String(s) => vec![s.clone()],
+                        other => other.as_array().expect("from list").iter().map(|s| s.as_str().expect("state").to_string()).collect(),
+                    },
+                    to: t["to"].as_str().expect("to").to_string(),
+                    event: t["event"].as_str().expect("event").to_string(),
+                }).collect();
+                let events = sm["events"].as_array().into_iter().flatten().map(|e| (e["key"].as_str().expect("event key").to_string(), e["payloadSchema"].clone())).collect();
+                out.push(Machine { trait_name: tr["name"].as_str().expect("trait name").to_string(), initial, edges, events, types: orbital.get("types").cloned().unwrap_or(Json::Null) });
+            }
+        }
+        (out, entities)
+    }
+
+    fn payload_for(machine: &Machine, entities: &BTreeMap<String, Vec<Json>>, event: &str, fill: Fill) -> Json {
+        let schema = machine.events.get(event).unwrap_or_else(|| panic!("{}: event {event} is not declared", machine.trait_name));
+        let types = Types { orbital_types: &machine.types, entities };
+        if schema.is_null() {
+            return Json::Null;
+        }
+        Json::Object(types.record(&fields_of(schema), fill, 0))
+    }
+
+    /// The events that reach each state from the initial one, shortest first.
+    fn reach(machine: &Machine) -> BTreeMap<String, Vec<String>> {
+        let mut paths = BTreeMap::from([(machine.initial.clone(), Vec::new())]);
+        let mut queue = VecDeque::from([machine.initial.clone()]);
+        while let Some(state) = queue.pop_front() {
+            for edge in machine.edges.iter().filter(|e| e.from.contains(&state)) {
+                if !paths.contains_key(&edge.to) {
+                    let mut path = paths[&state].clone();
+                    path.push(edge.event.clone());
+                    paths.insert(edge.to.clone(), path);
+                    queue.push_back(edge.to.clone());
+                }
+            }
+        }
+        paths
+    }
+
+    struct Report {
+        disagreements: Vec<Disagreement>,
+        dispatched: usize,
+        transitions: BTreeSet<String>,
+        covered: BTreeSet<String>,
+    }
+
+    fn drive_program(name: &str, schema: &OrbitalSchema) -> Report {
+        let program = serde_json::to_value(schema).expect("program json");
+        let (machines, entities) = machines(&program);
+        assert!(!machines.is_empty(), "{name}: no state machine to drive");
+        let mut report = Report { disagreements: Vec::new(), dispatched: 0, transitions: BTreeSet::new(), covered: BTreeSet::new() };
+        for machine in &machines {
+            let paths = reach(machine);
+            for edge in &machine.edges {
+                for from in &edge.from {
+                    let label = format!("{name}/{}/{from}--{}-->{}", machine.trait_name, edge.event, edge.to);
+                    report.transitions.insert(label.clone());
+                    let Some(path) = paths.get(from) else { continue };
+                    let mut seen = Vec::new();
+                    for fill in FILLS {
+                        let payload = payload_for(machine, &entities, &edge.event, fill);
+                        if seen.contains(&payload) {
+                            continue;
+                        }
+                        seen.push(payload.clone());
+                        let (kernel, store) = boot(schema);
+                        report.dispatched += 1;
+                        let mut refusal = None;
+                        for step in path {
+                            let step_payload = payload_for(machine, &entities, step, Fill::Minimal);
+                            if let Err(e) = dispatch(&kernel, &store, &machine.trait_name, step, &step_payload) {
+                                refusal = Some(format!("on the way in, {step} with {step_payload}: {e}"));
+                                break;
+                            }
+                        }
+                        if refusal.is_none() {
+                            refusal = dispatch(&kernel, &store, &machine.trait_name, &edge.event, &payload).err();
+                        }
+                        match refusal {
+                            Some(refusal) => report.disagreements.push(Disagreement { program: name.to_string(), trait_name: machine.trait_name.clone(), state: from.clone(), event: edge.event.clone(), fill, payload, refusal }),
+                            None => {
+                                report.covered.insert(label.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        report
+    }
+
+    #[test]
+    fn validate_accepts_every_corpus_program_and_the_controls_stay_out_of_it() {
+        for name in CORPUS {
+            let found = findings(&resolved(name));
+            assert!(found.is_empty(), "{name}: validate must accept every corpus program with 0 errors and 0 warnings:\n{}", found.join("\n"));
+        }
+        for name in CONTROLS {
+            assert!(!CORPUS.contains(name), "{name} is a control and must not be in the accepted corpus");
+            let found = findings(&resolved(name));
+            for code in ["OperatorNullOperand", "OperatorArgTypeMismatch", "SetValueTypeMismatch"] {
+                assert!(found.iter().any(|f| f.contains(&format!("code: {code},"))), "control {name}: validate must refuse with {code}, got:\n{}", found.join("\n"));
+            }
+        }
+    }
+
+    #[test]
+    fn the_kernel_never_refuses_a_declared_valid_dispatch_of_a_program_validate_accepted() {
+        let mut disagreements = Vec::new();
+        let mut total = 0;
+        for name in CORPUS {
+            let schema = resolved(name);
+            assert!(findings(&schema).is_empty(), "{name} is in the corpus only while validate accepts it");
+            let report = drive_program(name, &schema);
+            assert!(report.dispatched >= report.transitions.len(), "{name}: every transition is dispatched at least once ({} dispatches, {} transitions)", report.dispatched, report.transitions.len());
+            total += report.dispatched;
+            let unreached: Vec<&String> = report.transitions.iter().filter(|t| !report.covered.contains(*t) && !report.disagreements.iter().any(|d| t.contains(&format!("/{}/{}--{}-->", d.trait_name, d.state, d.event)))).collect();
+            assert!(unreached.is_empty(), "{name}: transitions never driven from the initial state: {unreached:?}");
+            disagreements.extend(report.disagreements);
+        }
+        assert!(total > 0, "the harness dispatched nothing");
+        assert!(
+            disagreements.is_empty(),
+            "validate accepted programs the kernel refuses ({} of {total} dispatches):\n{}",
+            disagreements.len(),
+            disagreements.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n")
+        );
+    }
+
+    #[test]
+    fn the_detector_sees_the_kernel_refuse_ill_typed_programs_that_bypass_validate() {
+        let schema = resolved("refused-boundaries");
+        assert!(!findings(&schema).is_empty(), "control: validate refuses this program");
+        let report = drive_program("refused-boundaries", &schema);
+        for event in ["NULL_OPERAND", "MISMATCH"] {
+            assert!(
+                report.disagreements.iter().any(|d| d.event == event),
+                "the harness must detect a run-time refusal on {event}; detected: {:?}",
+                report.disagreements.iter().map(ToString::to_string).collect::<Vec<_>>()
+            );
+        }
+        assert!(report.disagreements.iter().all(|d| d.event != "INIT"), "control: INIT is well typed and must not be reported");
+    }
+}

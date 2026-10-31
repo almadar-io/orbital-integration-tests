@@ -1,0 +1,45 @@
+app tb-fetched [
+  version: "1.0.0",
+  description: "Entity rows, a to-one relation, a reduce over fetched rows and a host-ask success payload."
+]
+
+orbital FetchOrbital {
+  type Loaded = Event { data : [Item] } "Items finished loading."
+
+  entity Owner [runtime] {
+    id : string!
+    name : string = ""
+  }
+
+  entity Item [runtime] {
+    id : string!
+    price : number = 0
+    owner : Owner
+  }
+
+  trait Fetcher -> Item {
+    initial: idle
+
+    state idle {
+      INIT -> idle
+        (render-ui main { type: typography, content: "fetched", variant: h3 })
+
+      LOAD -> idle
+        (fetch Item { emit: { success: Loaded } })
+
+      Loaded -> idle
+        (set @entity.price (array/reduce (default ?data []) 0 (fn (acc row) (+ @acc @row.price))))
+
+      PRICE -> idle
+        (set @entity.price (default (array/nth ?prices 0) 0))
+    }
+
+    listens {
+      LOAD { }
+      Loaded { data : [Item] }
+      PRICE { prices : [number]! }
+    }
+  }
+
+  page "/fetched" as FetchPage -> Fetcher
+}
