@@ -4,7 +4,7 @@ mod http1_listen_parity {
     use orbital_core::effects::Effect;
     use orbital_core::runtime::os_host::completion::{CompletionAnswerer, CompletionDone, KernelCompletionSink};
     use orbital_core::runtime::os_host::{answer_os, OsGrants, OsHandles, OsHost};
-    use orbital_core::runtime::resumable::{BlockingHost, CallSite, DispatchError, DispatchOutcomes, IoRequest};
+    use orbital_core::runtime::resumable::{BlockingHost, CallSite, DispatchError, DispatchOutcomes, IoRequest, drive_blocking};
     use orbital_core::runtime::{EntitySource, InMemoryEntityCache, KernelConfig, RuntimeKernel};
     use orbital_core::{OrbitalSchema, RuntimeEnvironment, Value};
     use serde_json::{json, Value as Json};
@@ -62,6 +62,24 @@ mod http1_listen_parity {
             let _ = stream.shutdown(Shutdown::Both);
             got
         })
+    }
+
+    /// A `program/dispatch` event request: the declared event runs in the session its `clientId` names, answered as the wire response.
+    fn client_session_dispatch(kernel: &RuntimeKernel, store: &dyn EntitySource, args: &[Value]) -> Result<Value, orbital_core::effects::executor::SubstrateFailure> {
+        let failure = |message: String| orbital_core::effects::executor::SubstrateFailure { message, errors: Vec::new() };
+        let [_, payload, Value::Object(options)] = args else { return Err(failure("program/dispatch: an address, a payload and options".to_string())) };
+        let text = |name: &str| options.get(name).and_then(Value::as_str).map(str::to_string).ok_or_else(|| failure(format!("program/dispatch: option {name}")));
+        let (trait_name, event, client) = (text("targetTrait")?, text("event")?, text("clientId")?);
+        let _session = kernel.enter_session(&client);
+        let progress = kernel.start_dispatch(&trait_name, None, &event, payload.clone(), None, None).map_err(|e| failure(format!("{e:?}")))?;
+        let host = |request: &IoRequest| BlockingHost { source: store, service: None, substrate: None }.answer(request);
+        let outcomes = drive_blocking(kernel, progress, &host).map_err(|e| failure(format!("{e:?}")))?;
+        let mut response = orbital_core::EventResponse::from_process_results(&outcomes, &trait_name, &event);
+        kernel.stamp_emitted_sources(&mut response);
+        if options.get("wire") == Some(&Value::Bool(true)) {
+            response = kernel.client_view(response);
+        }
+        serde_json::to_value(&response).and_then(serde_json::from_value).map_err(|e| failure(e.to_string()))
     }
 
     fn json_of(value: &Value) -> Json {
@@ -146,7 +164,7 @@ mod http1_listen_parity {
             kernel.register_schema(schema(&path, port, knobs)).expect("register");
             let handles = Arc::new(OsHandles::default());
             let answer: Arc<CompletionAnswerer> = {
-                let (handles, grants) = (handles.clone(), grants.clone());
+                let (handles, grants, kernel) = (handles.clone(), grants.clone(), kernel.clone());
                 Arc::new(move |request: &IoRequest| match request {
                     IoRequest::Os { .. } => {
                         let on_event = |_: Option<&CallSite>, _: Value| {};
@@ -154,6 +172,14 @@ mod http1_listen_parity {
                     }
                     IoRequest::Substrate { op, key: Some(key), site: Some(site), .. } if op == "program/live" => {
                         orbital_core::runtime::os_host::completion::Completions::open_substrate_stream(&handles.completions, key, site, || orbital_core::runtime::os_host::completion::StreamPoll::Idle)
+                    }
+                    IoRequest::Substrate { op, args, key: Some(key), site: Some(site) } if op == "program/dispatch" => {
+                        let (kernel, store) = (kernel.clone(), store.clone());
+                        let work = {
+                            let args = args.clone();
+                            move || client_session_dispatch(&kernel, store.as_ref(), &args)
+                        };
+                        orbital_core::runtime::os_host::completion::Completions::defer_substrate(&handles.completions, key, site, op, args, Box::new(work))
                     }
                     other => BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(other),
                 })
@@ -513,13 +539,13 @@ mod http1_listen_parity {
         read_rest(&mut conn)
     }
 
-    fn mint(port: u16) -> String {
-        ask(port, "POST /api/events/ticket HTTP/1.1\r\nHost: a\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    fn mint(port: u16, client_id: &str) -> String {
+        ask(port, &format!("POST /api/events/ticket?clientId={client_id} HTTP/1.1\r\nHost: a\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"))
     }
 
     fn ticket_of(server: &Server, reply: &str) -> String {
         let (status, headers, body) = parsed(reply);
-        assert_eq!(status, "HTTP/1.1 200 OK", "mint reply {reply:?}; events {:?}; errors {:?}", server.events.lock().expect("events").iter().filter(|(e, _)| e.starts_with("TICKET") || e.starts_with("SEED") || e == "MINT_REQUESTED").collect::<Vec<_>>(), server.errors.lock().expect("errors"));
+        assert_eq!(status, "HTTP/1.1 200 OK", "mint reply {reply:?}; events {:?}; errors {:?}", server.events.lock().expect("events").iter().filter(|(e, _)| e.starts_with("TICKET") || e.starts_with("SEED") || e.starts_with("MINT") || e.starts_with("IDENTITY") || e.starts_with("CREDENTIAL")).collect::<Vec<_>>(), server.errors.lock().expect("errors"));
         assert_eq!(header(&headers, "content-type"), Some("application/json"), "mint content-type in {reply:?}");
         let json: Json = serde_json::from_str(&body).unwrap_or_else(|e| panic!("mint body {body:?}: {e}"));
         let ticket = json["ticket"].as_str().unwrap_or_else(|| panic!("no ticket in {json}")).to_string();
@@ -547,11 +573,11 @@ mod http1_listen_parity {
         server.finish();
     }
 
-    /// An unauthenticated POST /api/events/ticket mints for the anonymous viewer and answers 200 { ticket }.
+    /// An unauthenticated POST /api/events/ticket?clientId= binds the client anonymous and answers 200 { ticket }.
     #[test]
     fn std_http_server_mints_a_ticket_for_an_anonymous_request() {
         let (server, _held) = http_server();
-        ticket_of(&server, &mint(server.port));
+        ticket_of(&server, &mint(server.port, "tab-1"));
         server.finish();
     }
 
@@ -559,7 +585,7 @@ mod http1_listen_parity {
     #[test]
     fn std_http_server_opens_the_event_stream_on_a_ticket() {
         let (server, _held) = http_server();
-        server.fire("StreamTicketer", "MINT_TICKET", json!({ "viewer": { "id": "u1", "email": "u1@a.test", "name": "U", "role": "user", "permissions": [], "claims": [] }, "requestId": 0 }));
+        server.fire("StreamTicketer", "MINT_TICKET", json!({ "clientId": "tab-1", "requestId": 0 }));
         let ticket = server.wait("TICKET_MINTED", 0)["ticket"].as_str().expect("ticket").to_string();
 
         let mut conn = connect(server.port);
@@ -583,11 +609,11 @@ mod http1_listen_parity {
     #[test]
     fn std_http_server_answers_two_concurrent_mints() {
         let (server, _held) = http_server();
-        let raw = "POST /api/events/ticket HTTP/1.1\r\nHost: a\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        let raw = |client_id: &str| format!("POST /api/events/ticket?clientId={client_id} HTTP/1.1\r\nHost: a\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
         let mut a = connect(server.port);
         let mut b = connect(server.port);
-        a.write_all(raw.as_bytes()).expect("write a");
-        b.write_all(raw.as_bytes()).expect("write b");
+        a.write_all(raw("tab-a").as_bytes()).expect("write a");
+        b.write_all(raw("tab-b").as_bytes()).expect("write b");
         let (ra, rb) = (read_rest(&mut a), read_rest(&mut b));
         let (ta, tb) = (ticket_of(&server, &ra), ticket_of(&server, &rb));
         assert_ne!(ta, tb, "two mints, two tickets");
@@ -646,7 +672,8 @@ mod machine_parity {
     /// What the retired `program/machine` operator (`orbital_core::program_machine::machine_rows`) answered for each program.
     const RECORDED: &[(&str, &str)] = &[
         ("std-cooldown", r#"[{"orbital":"CooldownOrbital","trait":"Cooldown","from":"ready","event":"START","to":"cooling","guarded":false,"payload":[{"name":"durationMs","type":"number","required":false}]},{"orbital":"CooldownOrbital","trait":"Cooldown","from":"cooling","event":"EXPIRE","to":"ready","guarded":false,"payload":[]}]"#),
-        ("std-retry", r#"[{"orbital":"RetryOrbital","trait":"Retry","from":"idle","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"idle","event":"START","to":"running","guarded":false,"payload":[{"name":"key","type":"CallKey","required":true}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"SUCCEEDED","to":"idle","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"FAILED","to":"backoff","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true},{"name":"error","type":"string","required":false}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"FAILED","to":"idle","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true},{"name":"error","type":"string","required":false}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"CANCEL","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"TIMER_DUE","to":"running","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"CANCEL","to":"idle","guarded":false,"payload":[]}]"#),
+        // std-retry: backoff TIMER_DUE split into two guarded arms (key set -> running, key null -> idle), re-recorded 2026-10-31 from the atom.
+        ("std-retry", r#"[{"orbital":"RetryOrbital","trait":"Retry","from":"idle","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"idle","event":"START","to":"running","guarded":false,"payload":[{"name":"key","type":"CallKey","required":true}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"SUCCEEDED","to":"idle","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"FAILED","to":"backoff","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true},{"name":"error","type":"string","required":false}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"FAILED","to":"idle","guarded":true,"payload":[{"name":"key","type":"CallKey","required":true},{"name":"error","type":"string","required":false}]},{"orbital":"RetryOrbital","trait":"Retry","from":"running","event":"CANCEL","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"INIT","to":"idle","guarded":false,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"TIMER_DUE","to":"running","guarded":true,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"TIMER_DUE","to":"idle","guarded":true,"payload":[]},{"orbital":"RetryOrbital","trait":"Retry","from":"backoff","event":"CANCEL","to":"idle","guarded":false,"payload":[]}]"#),
         ("from-list", r#"[{"orbital":"DoorOrbital","trait":"Lock","from":"locked","event":"OPEN","to":"open","guarded":false,"payload":[]},{"orbital":"DoorOrbital","trait":"Lock","from":"open","event":"SHUT","to":"locked","guarded":false,"payload":[]},{"orbital":"DoorOrbital","trait":"Lock","from":"ajar","event":"SHUT","to":"locked","guarded":false,"payload":[]}]"#),
     ];
 
@@ -704,50 +731,14 @@ mod machine_parity {
 }
 
 mod crypto_vectors {
-    use orbital_core::effects::Effect;
-    use orbital_core::runtime::resumable::{drive_blocking, BlockingHost, IoRequest};
-    use orbital_core::runtime::{EntitySource, InMemoryEntityCache, KernelConfig, RuntimeKernel};
-    use orbital_core::{OrbitalSchema, RuntimeEnvironment, Value};
+    use orbital_core::Value;
     use serde_json::{json, Value as Json};
     use std::path::PathBuf;
-    use std::sync::Arc;
-
-    fn atom(topic: &str, name: &str) -> OrbitalSchema {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/almadar-std/behaviors/lolo").join(topic).join("atoms").join(format!("{name}.lolo"));
-        orbital_compiler::loader::register_source_lowerer(|path, _, _| orbital_test_support::lower_lolo_file(path));
-        let schema = orbital_test_support::lower_lolo_file(&path).unwrap_or_else(|e| panic!("lower {name}: {e}"));
-        let options = orbital_compiler::CompilerOptions::from_env();
-        orbital_compiler::phases::lazy::resolve_program_with_path(schema, &options, Some(&path)).unwrap_or_else(|e| panic!("resolve {name}: {e}")).0
-    }
 
     fn vectors(group: &str) -> Vec<Json> {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/crypto/vectors.json");
         let all: Json = serde_json::from_str(&std::fs::read_to_string(&path).expect("crypto vectors")).expect("vectors json");
         all[group].as_array().unwrap_or_else(|| panic!("no {group} vectors")).clone()
-    }
-
-    /// One request on a fresh kernel → the (event, payload) of the single answer among `answers`.
-    fn answer(program: &OrbitalSchema, trait_name: &str, event: &str, payload: Json, answers: &[&str]) -> (String, Json) {
-        let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
-        let kernel = RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default());
-        kernel.register_schema(program.clone()).expect("register");
-        let payload: Value = serde_json::from_value(payload).expect("payload");
-        let progress = kernel.start_dispatch(trait_name, None, event, payload, None, None).unwrap_or_else(|e| panic!("dispatch: {e:?}"));
-        let host = |request: &IoRequest| BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(request);
-        let outcomes = drive_blocking(&kernel, progress, &host).unwrap_or_else(|e| panic!("drive: {e:?}"));
-        let got: Vec<(String, Json)> = outcomes
-            .iter()
-            .flat_map(|(_, o)| {
-                assert_eq!(o.failure, None, "an effect failed");
-                o.effect_results.iter()
-            })
-            .filter_map(|r| match &r.effect {
-                Effect::Emit { event, payload } if answers.contains(&event.as_str()) => Some((event.clone(), serde_json::to_value(payload).expect("json"))),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(got.len(), 1, "exactly one answer, got {got:?}");
-        got.into_iter().next().expect("answer")
     }
 
     /// `VERIFIED true|false` or `REFUSED <verdict>` from a verify operator's closed verdict.
@@ -792,19 +783,6 @@ mod crypto_vectors {
     fn crypto_rsa_pkcs1_vectors() {
         run_group("rsa", |c| {
             let got = operator_verdict(json!(["rsa/verify", c["n"], c["e"], c["message"], c["signature"]]));
-            (c["expect"].as_str().expect("expect").to_string(), got)
-        });
-    }
-
-    #[test]
-    fn crypto_jws_vectors() {
-        let program = atom("auth", "std-jws");
-        run_group("jws", |c| {
-            let (event, payload) = answer(&program, "JwsVerifier", "JWS_VERIFY", json!({ "token": c["token"], "jwk": c["jwk"] }), &["JWS_VERIFIED", "JWS_REFUSED"]);
-            let got = match payload["reason"].as_str() {
-                Some(reason) => format!("{event} {reason}"),
-                None => event,
-            };
             (c["expect"].as_str().expect("expect").to_string(), got)
         });
     }

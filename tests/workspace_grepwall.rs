@@ -325,7 +325,7 @@ const EXEC_RULES_PROVEN_ELSEWHERE: &[(&str, &str)] = &[
     ),
     (
         "EXEC-LANG-3",
-        "std spec/cli/lint-user-identity.replay.goldens.json",
+        "retired 2026-10-31 (owner): @user is never null (EXEC-SEED-5)",
     ),
     (
         "EXEC-SEED-5",
@@ -489,40 +489,25 @@ fn every_exec_rule_is_cited_by_a_core_test_or_listed_with_its_reason() {
 }
 
 /// P-017 T4: every `#[ignore]` in the workspace names the recorded gap that keeps the test off
-/// (a `G-...-NNN` code in the attribute's reason or the comment lines right above it). A test
+/// (a `G-...-NNN` code in the attribute's reason or the comment lines right above it), or is an
+/// on-demand tool whose reason starts `tool: <what it does>`. A test
 /// that is ignored with no gap is a red nobody tracks. `IGNORES_WITHOUT_GAP` is the ratchet:
 /// an uncoded ignore not listed fails, and so does a listed one that now carries a code or is gone.
-const IGNORES_WITHOUT_GAP: &[&str] = &[
-    "orbital-cli/tests/compat_differential.rs::compat_differential_corpus",
-    "orbital-cli/tests/live_registry.rs::live_std_corpus_validates_real_organisms",
-    "orbital-cli/tests/native_shell_resolved_schema.rs::android_compile_embeds_resolved_schema_resource",
-    "orbital-cli/tests/native_shell_resolved_schema.rs::ios_compile_embeds_resolved_schema_resource",
-    "orbital-compiler/src/phases/validation/expressions/effect/operator_args.rs::k2_census_provable_argument_positions",
-    "orbital-compiler/tests/pattern_field_ref_validation.rs::data_grid_image_field_invalid_scalar_warns",
-    "orbital-compiler/tests/pattern_field_ref_validation.rs::filter_group_with_mixed_fields_warns_per_bad_element",
-    "orbital-compiler/tests/pattern_field_ref_validation.rs::filter_group_with_typo_warns",
-    "orbital-compiler/tests/std_behavior_use.rs::cart_effects_override_replaces_transition_effects",
-    "orbital-core/crates/base/src/contract/identity.rs::print_process_seed",
-    "orbital-core/crates/base/src/program/schema/sexpr/tests.rs::interning_hit_rate_on_a_resolved_program",
-    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::browse_wire_sizes",
-    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::frame_wire_dump",
-    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::profile_loop",
-    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::stage_breakdown",
-    "orbital-core/crates/runtime/tests/frame_alloc_count.rs::tick_alloc_sites",
-    "orbital-core/tests/bench_trace_parity.rs::r0_trace_equals_b1_on_audit_provenance_and_visit_key",
-    "orbital-core/tests/bench_trace_parity.rs::r0_trace_equals_b1_on_every_fixture",
-    "orbital-ffi/tests/bench_trace_parity.rs::r1_trace_differs_from_r0_where_the_circuit_has_server_effects",
-    "orbital-ffi/tests/bench_trace_parity.rs::r1_trace_equals_r0_on_audit_provenance_and_visit_key",
-    "orbital-lolo/tests/lower.rs::fixture_16_use_imports",
-    "orbital-lolo/tests/lower.rs::fixture_18_type_trait_param",
-    "orbital-lolo/tests/lower.rs::fixture_21_type_orbital_shape",
-    "orbital-lolo/tests/lower.rs::fixture_22_crud_orbital_typed",
-    "orbital-lolo/tests/unlower_round_trip.rs::corpus_print_of_parse_divergence_by_cause",
-    "orbital-lolo/tests/unlower_round_trip.rs::dump_printed",
-    "orbital-lolo/tests/use_imports_inline.rs::lolo_use_imports_lower_to_inlinable_schema",
-    "orbital-shell-rust/renderers/dioxus/tests/capture.rs::look",
-    "orbital-shell-typescript/tests/codegen_typecheck.rs::codegen_typecheck_stub",
-];
+const IGNORES_WITHOUT_GAP: &[&str] = &[];
+
+fn is_tool_ignore(attribute: &str) -> bool {
+    let Some(reason) = attribute.split_once("#[ignore = \"").map(|(_, rest)| rest) else {
+        return false;
+    };
+    let Some(description) = reason.strip_prefix("tool: ") else {
+        return false;
+    };
+    description
+        .trim_start()
+        .chars()
+        .next()
+        .is_some_and(|c| c != '"')
+}
 
 fn names_gap_code(text: &str) -> bool {
     let bytes = text.as_bytes();
@@ -592,7 +577,7 @@ fn ignore_sites(path: &str, source: &str) -> Vec<(String, bool)> {
             .unwrap_or_else(|| "?".to_string());
         sites.push((
             format!("{path}::{name}"),
-            names_gap_code(&attribute) || names_gap_code(&above),
+            names_gap_code(&attribute) || is_tool_ignore(&attribute) || names_gap_code(&above),
         ));
         n = last + 1;
     }
@@ -650,7 +635,7 @@ fn every_ignored_test_names_a_gap_code() {
 #[test]
 fn ignore_scan_reads_codes_from_reasons_and_comments() {
     let source = "\
-    // Tracked by G-ORB-446.\n    #[test]\n    #[ignore]\n    fn above() {}\n\n    #[test]\n    #[ignore = \"lands with G-ORB-487 (absolute-path ruling)\"]\n    fn reason() {}\n\n    #[test]\n    #[ignore = \"long reason \\\n               continues, G-STD-169\"]\n    fn wrapped() {}\n\n    #[test]\n    #[ignore = \"needs a fixture\"]\n    fn bare() {}\n\n    #[test]\n    #[ignore = \"see AG-ORB-1 and G-ORB\"]\n    fn near_miss() {}\n";
+    // Tracked by G-ORB-446.\n    #[test]\n    #[ignore]\n    fn above() {}\n\n    #[test]\n    #[ignore = \"lands with G-ORB-487 (absolute-path ruling)\"]\n    fn reason() {}\n\n    #[test]\n    #[ignore = \"long reason \\\n               continues, G-STD-169\"]\n    fn wrapped() {}\n\n    #[test]\n    #[ignore = \"needs a fixture\"]\n    fn bare() {}\n\n    #[test]\n    #[ignore = \"see AG-ORB-1 and G-ORB\"]\n    fn near_miss() {}\n\n    #[test]\n    #[ignore = \"tool: prints the seed\"]\n    fn tool() {}\n\n    #[test]\n    #[ignore = \"tool:\"]\n    fn tool_without_description() {}\n\n    #[test]\n    #[ignore = \"tool: \"]\n    fn tool_with_blank_description() {}\n\n    #[test]\n    #[ignore = \"toolbox: prints the seed\"]\n    fn tool_lookalike() {}\n";
     let sites = ignore_sites("t.rs", source);
     let find = |n: &str| sites.iter().find(|(s, _)| s == &format!("t.rs::{n}")).map(|(_, c)| *c);
     assert_eq!(find("above"), Some(true));
@@ -658,4 +643,8 @@ fn ignore_scan_reads_codes_from_reasons_and_comments() {
     assert_eq!(find("wrapped"), Some(true));
     assert_eq!(find("bare"), Some(false));
     assert_eq!(find("near_miss"), Some(false));
+    assert_eq!(find("tool"), Some(true));
+    assert_eq!(find("tool_without_description"), Some(false));
+    assert_eq!(find("tool_with_blank_description"), Some(false));
+    assert_eq!(find("tool_lookalike"), Some(false));
 }

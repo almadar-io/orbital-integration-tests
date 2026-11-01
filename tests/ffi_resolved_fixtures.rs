@@ -186,3 +186,11 @@ fn a_changed_copy_of_the_embed_fixtures_is_reported() {
         ]
     );
 }
+
+#[test]
+fn the_ios_and_android_pattern_fixtures_are_byte_equal() {
+    let ios = workspace().join("crates/orbital-shell-ios/renderers/swiftui/fixtures");
+    let android = workspace().join("crates/orbital-shell-android/renderers/compose/fixtures");
+    let differences = tree_differences(&ios, &android);
+    assert!(differences.is_empty(), "the ios and android pattern fixtures drifted: {differences:?}");
+}
