@@ -796,7 +796,8 @@ mod bytes_parity {
     fn shown(value: &Json) -> String {
         match value {
             Json::Null => "NONE".into(),
-            Json::Number(n) => format!("VALUE {}", n.as_f64().expect("f64")),
+            Json::Number(n) if n.is_f64() => format!("VALUE {}", n.as_f64().expect("f64")),
+            Json::Number(n) => format!("VALUE {n}"),
             other => format!("VALUE {other}"),
         }
     }
@@ -851,7 +852,7 @@ mod bytes_parity {
         (r#"["bytes/read-uint", "/////w==", 0, 4, "be"]"#, "VALUE 4294967295"),
         (r#"["bytes/read-uint", "AB////////8=", 0, 8, "be"]"#, "VALUE 9007199254740991"),
         (r#"["bytes/read-uint", "/x8AAAAAAAA=", 0, 8, "le"]"#, "VALUE 8191"),
-        (r#"["bytes/read-uint", "ACAAAAAAAAA=", 0, 8, "be"]"#, "NONE"),
+        (r#"["bytes/read-uint", "ACAAAAAAAAA=", 0, 8, "be"]"#, "VALUE 9007199254740992"),
         (r#"["bytes/read-uint", "//////////8=", 0, 8, "be"]"#, "NONE"),
         (r#"["bytes/write-uint", 0, 1, "be"]"#, "VALUE \"AA==\""),
         (r#"["bytes/write-uint", 255, 1, "be"]"#, "VALUE \"/w==\""),
@@ -866,7 +867,7 @@ mod bytes_parity {
         (r#"["bytes/write-uint", 0, 8, "le"]"#, "VALUE \"AAAAAAAAAAA=\""),
         (r#"["bytes/write-uint", 9007199254740991, 8, "be"]"#, "VALUE \"AB////////8=\""),
         (r#"["bytes/write-uint", 9007199254740991, 8, "le"]"#, "VALUE \"////////HwA=\""),
-        (r#"["bytes/write-uint", 9007199254740992, 8, "be"]"#, "NONE"),
+        (r#"["bytes/write-uint", 9007199254740992, 8, "be"]"#, "VALUE \"ACAAAAAAAAA=\""),
         (r#"["bytes/write-uint", -1, 2, "be"]"#, "NONE"),
         (r#"["bytes/write-uint", 1.5, 2, "be"]"#, "NONE"),
         (r#"["bytes/write-uint", 1, 3, "be"]"#, "NONE"),
@@ -887,8 +888,8 @@ mod bytes_parity {
         (r#"["str/to-int", "0x10"]"#, "NONE"),
         (r#"["str/to-int", "9007199254740991"]"#, "VALUE 9007199254740991"),
         (r#"["str/to-int", "-9007199254740991"]"#, "VALUE -9007199254740991"),
-        (r#"["str/to-int", "9007199254740992"]"#, "NONE"),
-        (r#"["str/to-int", "9007199254740993"]"#, "NONE"),
+        (r#"["str/to-int", "9007199254740992"]"#, "VALUE 9007199254740992"),
+        (r#"["str/to-int", "9007199254740993"]"#, "VALUE 9007199254740993"),
         (r#"["str/to-int", "99999999999999999999"]"#, "NONE"),
     ];
 

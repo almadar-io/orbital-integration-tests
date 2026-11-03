@@ -312,6 +312,10 @@ const EXEC_RULES_PROVEN_ELSEWHERE: &[(&str, &str)] = &[
         "orbital-compiler phases/validation/ui/page.rs",
     ),
     (
+        "EXEC-LANG-4",
+        "orbital-compiler tests/sibling_pull_cross_atom.rs",
+    ),
+    (
         "EXEC-STORE-1",
         "std spec/store/firestore-twin.replay.goldens.json",
     ),
@@ -363,6 +367,11 @@ const EXEC_RULES_PENDING: &[&str] = &[
     "EXEC-HTTP-1",     // the http driver is archived; the std http atom's twin parity proves it
     "EXEC-HTTP-4",     // the redis driver is archived; the std redis atom's twin parity proves it
     "EXEC-HTTP-5",     // the postgres driver is archived; the std postgres atom's twin parity proves it
+    "EXEC-METAL-2",    // P-021 on `metal`: each rule gains its kernel test as its family lands
+    "EXEC-METAL-3",
+    "EXEC-METAL-4",
+    "EXEC-METAL-5",
+    "EXEC-METAL-6",
 ];
 
 /// Every `**EXEC-<FAMILY>-<N> - …**` rule heading in the execution-semantics spec.
