@@ -10,18 +10,18 @@ description = "Cross-crate tests that need the private compiler, the shared nati
 name = "orbital_test_support"
 
 [dependencies]
-orbital-core = { path = "../orbital-core" }
-orbital-lolo = { path = "../orbital-lolo" }
+orbital-core = { git = "https://github.com/almadar-io/orbital-core", branch = "main" }
+orbital-lolo = { git = "https://github.com/almadar-io/orbital-lolo", branch = "main" }
 serde_json.workspace = true
 
 [dev-dependencies]
-orbital-compiler = { path = "../orbital-compiler" }
-orbital-ffi = { path = "../orbital-ffi" }
-orbital-canvas = { path = "../orbital-canvas" }
-orbital-shell-typescript = { path = "../orbital-shell-typescript" }
-orbital-shell-rust = { path = "../orbital-shell-rust" }
-orbital-client-dioxus = { path = "../orbital-shell-rust/renderers/dioxus", features = ["native"] }
-orbital-shell-ios = { path = "../orbital-shell-ios" }
-orbital-shell-android = { path = "../orbital-shell-android" }
-orbital-shell-chrome = { path = "../orbital-shell-typescript/src/chrome" }
+orbital-compiler = { git = "https://github.com/almadar-io/orbital-compiler", branch = "main" }
+orbital-ffi = { git = "https://github.com/almadar-io/orbital-ffi", branch = "main" }
+orbital-canvas = { git = "https://github.com/almadar-io/orbital-canvas", branch = "main" }
+orbital-shell-typescript = { git = "https://github.com/almadar-io/orbital-shell-typescript", branch = "main" }
+orbital-shell-rust = { git = "https://github.com/almadar-io/orbital-shell-rust", branch = "main" }
+orbital-client-dioxus = { git = "https://github.com/almadar-io/orbital-shell-rust", branch = "main", features = ["native"] }
+orbital-shell-ios = { git = "https://github.com/almadar-io/orbital-shell-ios", branch = "main" }
+orbital-shell-android = { git = "https://github.com/almadar-io/orbital-shell-android", branch = "main" }
+orbital-shell-chrome = { git = "https://github.com/almadar-io/orbital-shell-typescript", branch = "main" }
 chrono.workspace = true
