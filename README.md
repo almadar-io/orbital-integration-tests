@@ -8,7 +8,7 @@
 
 </div>
 
-<p align="center"><sub>Part of <a href="https://github.com/almadar-io/orb"><b>Orb</b></a>: the language where the rule is the program. <a href="https://orb.almadar.io">orb.almadar.io</a></sub></p>
+<p align="center"><sub>Part of <a href="https://github.com/almadar-io/orb"><b>Orb</b></a>: a programming language of composable state machines. <a href="https://orb.almadar.io">orb.almadar.io</a></sub></p>
 
 This repo holds the tests that need several crates at once, for example the compiler plus the shells. It is not a node in the architecture diagram, so nothing is highlighted. It is not published (`publish = false`). The library `orbital_test_support` is the shared home for fixture helpers (discovering and faking installed behavior packages) that `orbital-compiler`, `orbital-lolo` and `orbital-cli` use as a dev-dependency.
 
