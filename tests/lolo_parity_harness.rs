@@ -1205,7 +1205,7 @@ mod orbital_ref_closure_findings {
         let std_stub = dir.join("node_modules/@almadar/std");
         let manifest_path = std_stub.join("package.json");
         let mut manifest: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&manifest_path).expect("std manifest")).expect("json");
-        manifest["orb"] = serde_json::json!({ "prefix": "almadar-std", "source": "behaviors/lolo", "compiler": ">=0.0.0" });
+        manifest["orb"] = serde_json::json!({ "prefix": "almadar-std", "source": "behaviors/lolo", "language": ">=0.0.0" });
         std::fs::write(&manifest_path, manifest.to_string()).expect("std manifest");
         orbital_test_support::link_installed_std_programs(&std_stub, Path::new(env!("CARGO_MANIFEST_DIR")));
         for (name, text) in files {

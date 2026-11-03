@@ -160,7 +160,7 @@ pub fn fake_package(
             "registry": "behaviors/registry",
             "source": "behaviors/lolo",
             "embeddings": [],
-            "compiler": ">=0.0.0",
+            "language": ">=0.0.0",
         },
     });
     fs::write(
@@ -209,7 +209,7 @@ pub fn link_installed_language(project: &Path, start: &Path) {
         serde_json::json!({
             "name": "@almadar/std",
             "version": ops.std_version,
-            "orbLanguage": { "compiler": ">=0.0.0", "operators": "canonical-operators.json" }
+            "orbLanguage": { "language": ">=0.0.0", "operators": "canonical-operators.json" }
         })
         .to_string(),
     )
