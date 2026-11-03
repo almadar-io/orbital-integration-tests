@@ -363,7 +363,6 @@ const EXEC_RULES_PENDING: &[&str] = &[
     "EXEC-LANG-1",     // brackets are data: the orbital-lolo parser
     "EXEC-CONC-3",     // keyed completions on real host threads: the native os host
     "EXEC-CONC-6",     // os/spawn, os/wait, os/kill and std-supervisor: the native os host and std
-    "EXEC-CONC-0a",    // the explicit-control model; primitives 2 and 3 are not implemented
     "EXEC-HTTP-1",     // the http driver is archived; the std http atom's twin parity proves it
     "EXEC-HTTP-4",     // the redis driver is archived; the std redis atom's twin parity proves it
     "EXEC-HTTP-5",     // the postgres driver is archived; the std postgres atom's twin parity proves it
