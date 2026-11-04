@@ -142,7 +142,18 @@ fn dioxus_declared_incomplete_patterns_match_unpainted_and_partial() {
         .filter(|pattern| registry.is_partial(pattern))
         .map(str::to_string)
         .collect();
-    assert_eq!(partial, vec!["pattern-tile".to_string()], "default partial paint paths");
+    assert_eq!(
+        partial,
+        [
+            "animated-graphic", "box", "breadcrumb", "data-grid", "data-list",
+            "empty-state", "filter-group", "form-actions", "icon", "input-group",
+            "law-reference-tooltip", "loading-state", "menu", "modal", "navigation",
+            "pagination", "pattern-tile", "search-input", "svg-connection", "svg-flow",
+            "svg-node", "svg-pulse",
+        ]
+        .map(str::to_string),
+        "default partial paint paths"
+    );
     assert!(registry.supports("pattern-tile"), "PatternTile paint path remains registered");
     assert!(!registry.is_complete("pattern-tile"), "PatternTile contract remains incomplete");
     let mut stubs: Vec<String> = orbital_client_dioxus::registry::STUBBED_PATTERNS
