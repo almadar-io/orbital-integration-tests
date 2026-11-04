@@ -1,8 +1,8 @@
 [package]
 name = "orbital-integration-tests"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = "19.0.0"
+edition = "2021"
+license = "MIT"
 publish = false
 description = "Cross-crate tests that need the private compiler, the shared native-conformance suite or the template repos"
 
@@ -12,7 +12,7 @@ name = "orbital_test_support"
 [dependencies]
 orbital-core = { git = "https://github.com/almadar-io/orbital-core", branch = "main" }
 orbital-lolo = { git = "https://github.com/almadar-io/orbital-lolo", branch = "main" }
-serde_json.workspace = true
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
 
 [dev-dependencies]
 orbital-compiler = { git = "https://github.com/almadar-io/orbital-compiler", branch = "main" }
@@ -24,4 +24,4 @@ orbital-client-dioxus = { git = "https://github.com/almadar-io/orbital-shell-rus
 orbital-shell-ios = { git = "https://github.com/almadar-io/orbital-shell-ios", branch = "main" }
 orbital-shell-android = { git = "https://github.com/almadar-io/orbital-shell-android", branch = "main" }
 orbital-shell-chrome = { git = "https://github.com/almadar-io/orbital-shell-typescript", branch = "main" }
-chrono.workspace = true
+chrono = { version = "0.4", features = ["serde"] }
