@@ -107,6 +107,7 @@ fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
             ir_version: IR_VERSION,
             module: module.clone(),
             resolved: resolved.clone(),
+            lazy: Vec::new(),
             served: None,
             source_path: Some(path.to_path_buf()),
             write: orbital_core::project::WriteOptions {
@@ -215,6 +216,7 @@ fn a_served_program_in_full_mode_is_written_as_the_linked_shell_wrote_it() {
             ir_version: IR_VERSION,
             module: module.clone(),
             resolved: Some(served.clone()),
+            lazy: Vec::new(),
             served: Some(served.clone()),
             source_path: Some(path.clone()),
             write: orbital_core::project::WriteOptions {
