@@ -131,25 +131,81 @@ fn dioxus_coverage_list_is_what_the_registry_answers() {
 }
 
 /// The native desktop registry (the game overrides register only there), the one
-/// `orb-desktop` probes with.
+/// `orb-desktop` probes with. A paintable partial pattern remains incomplete.
 #[test]
-fn dioxus_declared_stubs_are_exactly_the_unsupported_patterns() {
+fn dioxus_declared_incomplete_patterns_match_unpainted_and_partial() {
     let registry = orbital_client_dioxus::registry::default_registry();
     let unsupported = dioxus_unsupported(&registry);
+    let partial: Vec<String> = registry
+        .coverage()
+        .into_iter()
+        .filter(|pattern| registry.is_partial(pattern))
+        .map(str::to_string)
+        .collect();
+    assert_eq!(
+        partial,
+        [
+            "animated-graphic", "box", "breadcrumb", "data-grid", "data-list",
+            "empty-state", "filter-group", "form-actions", "icon", "input-group",
+            "law-reference-tooltip", "loading-state", "menu", "modal", "navigation",
+            "pagination", "pattern-tile", "search-input", "svg-connection", "svg-flow",
+            "svg-node", "svg-pulse",
+        ]
+        .map(str::to_string),
+        "default partial paint paths"
+    );
+    assert!(registry.supports("pattern-tile"), "PatternTile paint path remains registered");
+    assert!(!registry.is_complete("pattern-tile"), "PatternTile contract remains incomplete");
     let mut stubs: Vec<String> = orbital_client_dioxus::registry::STUBBED_PATTERNS
         .iter()
         .map(|s| s.to_string())
         .collect();
     stubs.sort();
+    let mut incomplete = unsupported;
+    incomplete.extend(partial);
+    incomplete.sort();
     assert_eq!(
-        unsupported, stubs,
-        "declare a new gap in STUBBED_PATTERNS, or drop an implemented one"
+        incomplete, stubs,
+        "declare a new incomplete pattern, or prove one complete before dropping it"
     );
     assert!(stubs.iter().all(|p| registry.is_stub(p)));
     assert!(
         !registry.is_stub("typography"),
         "control: a supported pattern is no stub"
     );
+}
+
+#[test]
+fn dioxus_stub_fixtures_use_only_declared_contract_props() {
+    let registry_json: serde_json::Value = serde_json::from_str(
+        &orbital_core::language_data::language_data()
+            .unwrap_or_else(|e| panic!("{}: {e}", e.code()))
+            .patterns,
+    )
+    .unwrap();
+    let patterns = registry_json["patterns"].as_object().expect("patterns object");
+    let fixture_dir = conformance_dir().join("pattern-fixtures");
+    for name in orbital_client_dioxus::registry::STUBBED_PATTERNS {
+        let fixture_path = fixture_dir.join(format!("{name}.json"));
+        if !fixture_path.exists() {
+            continue;
+        }
+        let fixture: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
+        let props = fixture.as_object().expect("pattern fixture object");
+        assert_eq!(fixture["type"].as_str(), Some(*name), "{name}: fixture type");
+        let schema = patterns[*name]["propsSchema"]
+            .as_object()
+            .unwrap_or_else(|| panic!("{name}: missing propsSchema"));
+        let undeclared: Vec<_> = props
+            .keys()
+            .filter(|prop| prop.as_str() != "type" && !schema.contains_key(prop.as_str()))
+            .collect();
+        assert!(
+            undeclared.is_empty(),
+            "{name}: fixture carries undeclared props {undeclared:?}"
+        );
+    }
 }
 
 /// The native construct that carries each declared web role, per shell: a pattern's renderer must contain at least one.
