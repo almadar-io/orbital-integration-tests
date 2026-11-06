@@ -56,7 +56,6 @@ fn in_process(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
         "typescript" => {
             let backend = TypeScriptBackend { browser_schema: Some(resolved(path, &options)), ..TypeScriptBackend::default() };
             generate_from_file_with_source(path, path, out, &express_shell(), &backend, &options).map_err(e)?;
-            orbital_core::project::copy_locales(path, out).expect("copy locales");
         }
         "android" => {
             orbital_shell_android::require_renderer_pack().map_err(|err| err.to_string())?;
@@ -210,7 +209,6 @@ fn a_served_program_in_full_mode_is_written_as_the_linked_shell_wrote_it() {
     };
     let backend = TypeScriptBackend { browser_schema: Some(served.clone()), served_schema: Some(served.clone()), ..TypeScriptBackend::default() };
     generate_from_file_with_source(&path, &path, &a, &express_shell(), &backend, &options).expect("linked generate");
-    orbital_core::project::copy_locales(&path, &a).expect("copy locales");
     generate_from_file_with_source_using(&path, &path, &b, &options, |module, out| {
         let request = GenerateRequest {
             ir_version: IR_VERSION,
