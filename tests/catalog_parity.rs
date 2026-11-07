@@ -186,6 +186,8 @@ impl Opener {
                     "stateMachine": {
                         "states": [{ "name": "idle", "isInitial": true }],
                         "transitions": [
+                            { "from": "idle", "to": "idle", "event": "RESET", "effects": [
+                                ["set", "@entity.answer", null], ["set", "@entity.failed", null]] },
                             { "from": "idle", "to": "idle", "event": "OPEN", "effects": [
                                 ["program/open", "@payload.program", { "route": "@payload.route", "declared": true }, { "emit": { "success": "OPENED", "failure": "FAILED" } }]] },
                             { "from": "idle", "to": "idle", "event": "OPENED", "effects": [
@@ -217,7 +219,9 @@ impl Opener {
 
     /// Dispatches `event` on the opener and reads back what the guest answered: `Ok(answer)` or `Err(refusal)`.
     fn run(&self, event: &str, payload: Json) -> Result<Json, String> {
-        self.host.dispatch("Opener", RUN_ENTITY, event, value_of(payload)?).map_err(|e| e.to_string())?;
+        // Each call reads only what this event answered, never an earlier call's answer or refusal.
+        self.host.dispatch("Opener", RUN_ENTITY, "RESET", orbital_core::Value::Null).map_err(|e| format!("opener RESET: {e}"))?;
+        self.host.dispatch("Opener", RUN_ENTITY, event, value_of(payload)?).map_err(|e| format!("opener {event}: {e}"))?;
         let mut entity = orbital_core::json_value::value_to_json(&self.host.kernel().snapshot_trait("Opener", Some(RUN_ENTITY)).entity);
         let mut take = |key: &str| entity.get_mut(key).map(Json::take).filter(|v| !v.is_null());
         if let Some(refusal) = take("failed") {
@@ -620,4 +624,103 @@ fn the_catalog_guest_open_matches_the_served_registration() {
         println!("{line}");
     }
     assert!(findings.is_empty(), "{} divergences between the served registration and the catalog guest open", findings.len());
+}
+
+/// A guest whose `BAD` emits an event missing its required field and whose `GOOD` paints.
+fn strict_guest() -> Json {
+    json!({
+        "name": "Strict", "typeContractVersion": 1,
+        "orbitals": [{
+            "name": "S", "entity": { "name": "Cell", "persistence": "runtime", "fields": [{ "name": "id", "type": "string" }] },
+            "traits": [{ "name": "T", "linkedEntity": "Cell",
+                "stateMachine": { "states": [{ "name": "idle", "isInitial": true }],
+                    "emits": [{ "event": "OUT", "scope": "external", "payloadSchema": [{ "name": "itemId", "type": "string", "required": true }] }],
+                    "transitions": [
+                        { "from": "idle", "to": "idle", "event": "INIT", "effects": [["render-ui", "main", { "type": "typography", "content": "ready" }]] },
+                        { "from": "idle", "to": "idle", "event": "BAD", "effects": [["emit", "OUT", {}]] },
+                        { "from": "idle", "to": "idle", "event": "GOOD", "effects": [["render-ui", "main", { "type": "typography", "content": "good" }]] }
+                    ] } }],
+            "pages": [{ "name": "P", "path": "/", "traits": [{ "ref": "T" }] }]
+        }]
+    })
+}
+
+#[test]
+fn a_failed_guest_step_does_not_fail_the_next_step_of_the_same_guest() {
+    let opener = Opener::new(&json!({ "kernel": [{ "target": "guest", "kinds": ["spawn"] }] })).unwrap();
+    opener.run("OPEN", json!({ "program": strict_guest(), "route": "/" })).unwrap();
+    let bad = opener.run("CALL", json!({ "address": "T.BAD", "payload": null }));
+    assert!(bad.is_err(), "the bad step is refused: {bad:?}");
+    let good = opener.run("CALL", json!({ "address": "T.GOOD", "payload": null }));
+    assert!(good.is_ok(), "the next step is answered, not refused by the earlier failure: {good:?}");
+}
+
+#[test]
+fn control_a_fresh_guest_opened_after_a_failed_step_mounts() {
+    let opener = Opener::new(&json!({ "kernel": [{ "target": "guest", "kinds": ["spawn"] }] })).unwrap();
+    opener.run("OPEN", json!({ "program": strict_guest(), "route": "/" })).unwrap();
+    let _ = opener.run("CALL", json!({ "address": "T.BAD", "payload": null }));
+    let _ = opener.run("CLOSE", Json::Null);
+    let reopened = opener.run("OPEN", json!({ "program": strict_guest(), "route": "/" }));
+    assert!(reopened.is_ok(), "{reopened:?}");
+}
+
+/// Diagnostic, run by hand: boots the launchpad on a behavior route as `orb launchpad` serves it and prints what the
+/// catalog data trait answered.
+#[test]
+#[ignore]
+fn launchpad_catalog_listing_settles() {
+    let path = workspace_root().join(LAUNCHPAD);
+    let program = resolve(&path).unwrap();
+    let served = served_open(&program, &path, "/almadar-behaviors/std-note").unwrap();
+    for second in 0..2 {
+        let snapshot = served.host.kernel().snapshot_trait("BehaviorCatalogData", Some(RUN_ENTITY));
+        eprintln!("BehaviorCatalogData state at {second}s: {}", snapshot.state);
+        if snapshot.state != "loading" {
+            let entity = orbital_core::json_value::value_to_json(&snapshot.entity);
+            for key in ["error", "lastError", "message", "total", "count"] {
+                if let Some(v) = entity.get(key) {
+                    eprintln!("  {key}: {}", v.to_string().chars().take(400).collect::<String>());
+                }
+            }
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    let emitted: Vec<String> = served.capture.emitted.as_array().into_iter().flatten().filter_map(|e| e["event"].as_str().map(str::to_string)).collect();
+    for name in ["PLAYGROUND_OPENED", "CATALOG_LOAD", "SCOPE", "LISTED", "LIST_FAILED", "APP_SHOWN", "BOARD_OPEN"] {
+        eprintln!("{name}: {}", emitted.iter().filter(|e| e.as_str() == name).count());
+    }
+    let moved: Vec<String> = served.capture.outcomes.as_array().into_iter().flatten().filter(|o| o["trait"].as_str().is_some_and(|t| t.starts_with("Playground") || t == "LaunchpadStage" || t == "BehaviorCatalogData" || t == "LaunchpadBehaviorRoute")).map(|o| format!("{}.{} {}->{} fired={}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""), o["from"], o["to"], o["fired"])).collect();
+    eprintln!("moved: {moved:#?}");
+    for e in served.capture.emitted.as_array().into_iter().flatten() {
+        if e["event"].as_str().is_some_and(|n| n.contains("LIST") || n.contains("CATALOG") || n.contains("FAIL")) {
+            eprintln!("{}", e.to_string().chars().take(600).collect::<String>());
+        }
+    }
+}
+
+/// Diagnostic, run by hand: the launchpad's browser kernel (as the wasm client runs it) opens the playground tab and
+/// prints whether that dispatch posts a server leg, which is what lets the server's catalog trait list.
+#[test]
+#[ignore]
+fn launchpad_playground_open_posts_a_server_leg() {
+    let program = resolve(&workspace_root().join(LAUNCHPAD)).unwrap();
+    let browser = orbital_core::embed::EmbeddedKernel::new(program, "c1").unwrap();
+    let circuit = browser.page_circuit(None, Some("/")).unwrap();
+    let mut traits: Vec<String> = circuit.mounts.iter().map(|s| s.r#trait.clone()).collect();
+    traits.extend(circuit.embedded.iter().filter(|t| !traits.contains(t)).cloned().collect::<Vec<_>>());
+    let entered = browser.enter(Some("/"), "c1\u{0}/", traits).unwrap();
+    browser.dispatch_mount(&entered.seeds, None, orbital_core::Value::Null).unwrap();
+    for name in ["LaunchpadStage", "BehaviorCatalogData", "PlaygroundFrame"] {
+        eprintln!("{name}: mode {:?}, state {:?}", browser.dispatch_mode(name), browser.get_state(name, None));
+    }
+    let payload = value_of(json!({ "behavior": "almadar-std/std-behavior-playground", "label": "Behavior playground", "icon": "flask-conical", "topic": "dev" })).unwrap();
+    let dispatched = browser.dispatch("LaunchpadStage", None, "TAB_OPEN", payload).unwrap();
+    let wire = serde_json::to_value(&dispatched).unwrap();
+    eprintln!("emitted: {:?}", dispatched.response.emitted_events.iter().map(|e| e.event.clone()).collect::<Vec<_>>());
+    eprintln!("server legs: {}", dispatched.server_legs.len());
+    eprintln!("legs: {}", wire["serverLegs"].to_string().chars().take(800).collect::<String>());
+    eprintln!("stateful leg: {}", wire["statefulLeg"].to_string().chars().take(400).collect::<String>());
+    eprintln!("BehaviorCatalogData after: {:?}", browser.get_state("BehaviorCatalogData", None));
 }
