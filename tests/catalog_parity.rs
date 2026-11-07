@@ -815,6 +815,14 @@ fn catalog_guest_seeded_rows() {
         let opener = Opener::new(&grants).unwrap();
         let opened = opener.run("OPEN", json!({ "program": program_json, "route": route }));
         eprintln!("== {} (declares marks: {marks}) page {name} {route}: open {}", path.display(), if opened.is_ok() { "ok".to_string() } else { format!("{opened:?}") });
+        if let Ok(answer) = &opened {
+            for e in answer["emitted"].as_array().into_iter().flatten() {
+                let ev = e["event"].as_str().unwrap_or("");
+                if ev.contains("FAIL") || ev.contains("REFUSED") || ev.starts_with("DATASET") || ev.starts_with("PERSONA") {
+                    eprintln!("  emitted {ev}: {}", e["payload"].to_string().chars().take(300).collect::<String>());
+                }
+            }
+        }
         let orbitals: Vec<String> = program_json["orbitals"].as_array().into_iter().flatten().filter_map(|o| o["name"].as_str().map(str::to_string)).collect();
         for orbital in orbitals {
             match opener.run("INPUTS", json!({ "orbital": orbital })) {
@@ -826,6 +834,9 @@ fn catalog_guest_seeded_rows() {
                         if full {
                             let stores: Vec<String> = t["entity"]["dsStores"].as_object().map(|o| o.iter().map(|(k, v)| format!("{k}:{}", v.as_array().map_or(0, Vec::len))).collect()).unwrap_or_default();
                             eprintln!("    seeder stores {stores:?}");
+                            let e = &t["entity"];
+                            eprintln!("    seeder mode {} active {} minted {} sessions {} error {}", e["dsMode"], e["dsActive"], e["dsMinted"], e["dsSessions"], e["dsError"]);
+                            eprintln!("    seeder persona {}/{} writes left {}", e["dsPersonaOrbital"], e["dsPersonaTrait"], e["dsWrites"].as_array().map_or(0, Vec::len));
                         } else {
                             eprintln!("    trait {} state {} entity {}", t["trait"], t["state"], text.chars().take(160).collect::<String>());
                         }
