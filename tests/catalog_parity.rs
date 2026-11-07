@@ -829,6 +829,13 @@ fn catalog_guest_seeded_rows() {
                 for t in answer.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten().filter(|t| t["trait"] == SEEDER_TRAIT) {
                     let e = &t["entity"];
                     eprintln!("  after {second}s: seeder mode {} active {} writes left {} sessions {}", e["dsMode"], e["dsActive"], e["dsWrites"].as_array().map_or(0, Vec::len), e["dsSessions"]);
+                    if let Some(map) = e.as_object() {
+                        let small: Vec<String> = map.iter().filter(|(k, v)| (k.starts_with("ds") || k.starts_with("ac")) && !["dsStores", "dsRegsAll", "dsWrites", "dsWriteAll", "dsStamps", "dsStamped", "dsOlinks"].contains(&k.as_str()) && v.to_string().len() < 200).map(|(k, v)| format!("{k}={v}")).collect();
+                        eprintln!("    {}", small.join(" "));
+                        for k in ["dsWriteAll", "acQueue", "acAnswers"] {
+                            eprintln!("    {k} len {} first {}", e[k].as_array().map_or(0, Vec::len), e[k].as_array().and_then(|a| a.first()).map(|v| v.to_string().chars().take(200).collect::<String>()).unwrap_or_default());
+                        }
+                    }
                 }
             }
         }
