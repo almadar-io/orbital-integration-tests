@@ -1020,3 +1020,20 @@ fn a_guest_keyed_self_dispatch_settles() {
         eprintln!("after {}s: {settled:?}", second + 1);
     }
 }
+
+/// Diagnostic, run by hand (G-STD-306): how long the catalog's `behavior/resolve` takes on project-friday, parse and
+/// resolve timed apart, through the resolve the program host runs.
+#[test]
+#[ignore]
+fn project_friday_resolve_timing() {
+    let path = workspace_root().join("packages/almadar-behaviors/behaviors/lolo/project-friday/organisms/project-friday.lolo");
+    let compiler = compiler_options().unwrap();
+    let started = std::time::Instant::now();
+    let schema = orbital_compiler::phases::parse_file(&path).unwrap();
+    let parsed = started.elapsed();
+    let resolved = orbital_compiler::phases::lazy::resolve_program_with_path(schema, &compiler, Some(&path));
+    let total = started.elapsed();
+    let (schema, _) = resolved.unwrap();
+    let traits: usize = schema.orbitals.iter().map(|o| o.traits.len()).sum();
+    eprintln!("project-friday: parse {parsed:?}, resolve {:?}, total {total:?}; {} orbitals, {traits} traits", total - parsed, schema.orbitals.len());
+}

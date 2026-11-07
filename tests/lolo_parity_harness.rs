@@ -499,13 +499,8 @@ mod http1_listen_parity {
 
     const SERVER: &str = "almadar-std/behaviors/lolo/net/organisms/std-http-server.lolo";
 
-    /// The organism's own `net` grant and Http1 port; a composed trait's knobs are not reachable from the schema.
-    const SERVER_PORT: u16 = 3000;
-    /// The organism's tests share its one port, so they run one at a time.
-    static SERVER_PORT_LOCK: Mutex<()> = Mutex::new(());
-
-    /// Closes the listener even when a case panics, then frees the port for the next case.
-    struct PortHeld(Arc<OsHandles>, #[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
+    /// Closes the listener even when a case panics.
+    struct PortHeld(Arc<OsHandles>);
 
     impl Drop for PortHeld {
         fn drop(&mut self) {
@@ -514,9 +509,8 @@ mod http1_listen_parity {
     }
 
     fn http_server() -> (Server, PortHeld) {
-        let guard = SERVER_PORT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let server = Server::boot_on(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages").join(SERVER), SERVER_PORT, &[]);
-        let held = PortHeld(server.handles.clone(), guard);
+        let server = Server::boot(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages").join(SERVER));
+        let held = PortHeld(server.handles.clone());
         (server, held)
     }
 
