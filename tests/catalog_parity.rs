@@ -823,6 +823,15 @@ fn catalog_guest_seeded_rows() {
                 }
             }
         }
+        for second in [1u64, 3, 6] {
+            std::thread::sleep(std::time::Duration::from_secs(if second == 1 { 1 } else { 3 }));
+            if let Ok(answer) = opener.run("INPUTS", json!({ "orbital": "MockData" })) {
+                for t in answer.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten().filter(|t| t["trait"] == SEEDER_TRAIT) {
+                    let e = &t["entity"];
+                    eprintln!("  after {second}s: seeder mode {} active {} writes left {} sessions {}", e["dsMode"], e["dsActive"], e["dsWrites"].as_array().map_or(0, Vec::len), e["dsSessions"]);
+                }
+            }
+        }
         let orbitals: Vec<String> = program_json["orbitals"].as_array().into_iter().flatten().filter_map(|o| o["name"].as_str().map(str::to_string)).collect();
         for orbital in orbitals {
             match opener.run("INPUTS", json!({ "orbital": orbital })) {
