@@ -181,7 +181,7 @@ impl Opener {
                 "name": "Opener",
                 "entity": { "name": "Box", "persistence": "runtime", "fields": [
                     { "name": "id", "type": "string" }, { "name": "guest", "type": "string" },
-                    { "name": "answer", "type": "object" }, { "name": "failed", "type": "object" }] },
+                    { "name": "answer", "type": "object", "nullable": true }, { "name": "failed", "type": "object", "nullable": true }] },
                 "traits": [{
                     "name": "Opener", "linkedEntity": "Box",
                     "stateMachine": {
@@ -767,6 +767,36 @@ fn launchpad_playground_open_posts_a_server_leg() {
     eprintln!("BehaviorCatalogData after: {:?}", browser.get_state("BehaviorCatalogData", None));
 }
 
+/// G-STD-303 (EXEC-DIST-10 + EXEC-ENDPOINT-3a): the launchpad's deep link mounts `LaunchpadBehaviorRoute`, whose INIT
+/// reaches the playground's catalog through `[client]` route traits the host leaves to the browser, so the browser
+/// kernel posts the catalog's listing as a hop after the mount, or the catalog never lists.
+#[test]
+fn the_launchpad_behavior_deep_link_posts_the_catalog_listing_after_the_mount() {
+    let program = resolve(&workspace_root().join(LAUNCHPAD)).unwrap();
+    let browser = orbital_core::embed::EmbeddedKernel::new(program, "c1").unwrap();
+    let route = "/almadar-std/std-browse";
+    let circuit = browser.page_circuit(None, Some(route)).unwrap();
+    let mut traits: Vec<String> = circuit.mounts.iter().map(|s| s.r#trait.clone()).collect();
+    traits.extend(circuit.embedded.iter().filter(|t| !traits.contains(t)).cloned().collect::<Vec<_>>());
+    let entered = browser.enter(Some(route), &format!("c1\u{0}{route}"), traits).unwrap();
+    let payload = value_of(json!({ "package": "almadar-std", "name": "std-browse" })).unwrap();
+    let mounted = browser.dispatch_route_mount(Some(route), &entered.seeds, None, payload).unwrap();
+    let hops: Vec<(Option<String>, String)> = mounted.hops.iter().map(|h| (h.leg.target_trait.clone(), h.leg.event.clone())).collect();
+    assert!(hops.contains(&(Some("BehaviorCatalogData".to_string()), "CATALOG_LOAD".to_string())), "{hops:?}");
+}
+
+#[test]
+fn control_the_launchpad_home_mount_posts_no_hop() {
+    let program = resolve(&workspace_root().join(LAUNCHPAD)).unwrap();
+    let browser = orbital_core::embed::EmbeddedKernel::new(program, "c1").unwrap();
+    let circuit = browser.page_circuit(None, Some("/")).unwrap();
+    let mut traits: Vec<String> = circuit.mounts.iter().map(|s| s.r#trait.clone()).collect();
+    traits.extend(circuit.embedded.iter().filter(|t| !traits.contains(t)).cloned().collect::<Vec<_>>());
+    let entered = browser.enter(Some("/"), "c1\u{0}/", traits).unwrap();
+    let mounted = browser.dispatch_route_mount(Some("/"), &entered.seeds, None, orbital_core::Value::Null).unwrap();
+    assert!(mounted.hops.is_empty(), "{:?}", mounted.hops.iter().map(|h| (h.leg.target_trait.clone(), h.leg.event.clone())).collect::<Vec<_>>());
+}
+
 /// Diagnostic, run by hand: the launchpad's browser kernel mounting a behavior deep link, with the route params a
 /// client mount carries, and what each seed emitted and moved.
 #[test]
@@ -789,10 +819,41 @@ fn launchpad_behavior_deep_link_mount() {
         if !(t.starts_with("Launchpad") || t.starts_with("Playground") || t == "BehaviorCatalogData") { continue }
         let emitted: Vec<&str> = seed["response"]["emittedEvents"].as_array().into_iter().flatten().filter_map(|e| e["event"].as_str()).collect();
         eprintln!("{t}: emitted {emitted:?} error {}", seed["response"]["error"]);
+        for routed in seed["serverLegs"].as_array().into_iter().flatten() {
+            let l = &routed["leg"];
+            eprintln!("  serverLeg {} -> {}.{} source {} traits {:?}", routed["orbital"], l["targetTrait"], l["event"], l["sourceTrait"], l["traits"].as_array().map(|ts| ts.iter().map(|t| t["trait"].clone()).collect::<Vec<_>>()));
+        }
+        eprintln!("  steps {:?}", seed["steps"].as_array().into_iter().flatten().map(|s| format!("{}.{}{}", s["trait"].as_str().or(s["traitName"].as_str()).unwrap_or("?"), s["event"].as_str().unwrap_or("?"), if s["delegated"] == true { "(delegated)" } else { "" })).collect::<Vec<_>>());
     }
-    eprintln!("legs: {}", wire["legs"].to_string().chars().take(1500).collect::<String>());
+    for leg in wire["legs"].as_array().into_iter().flatten() {
+        let seeds: Vec<String> = leg["seeds"].as_array().into_iter().flatten().map(|s| format!("{}.{}", s["trait"].as_str().unwrap_or("?"), s["event"].as_str().unwrap_or("?"))).collect();
+        eprintln!("leg {} route {} payload {} seeds {seeds:?}", leg["orbital"], leg["leg"]["route"], leg["leg"]["payload"]);
+    }
     for name in ["LaunchpadStage", "BehaviorCatalogData", "LaunchpadBehaviorRoute", "PlaygroundRoute"] {
         eprintln!("{name}: {:?}", browser.get_state(name, None));
+    }
+    let Some(leg) = wire["legs"].as_array().and_then(|legs| legs.first()) else { return };
+    let names: Vec<&str> = leg["seeds"].as_array().into_iter().flatten().filter_map(|s| s["trait"].as_str()).collect();
+    let seeds: Vec<_> = entered.seeds.iter().filter(|s| names.contains(&s.r#trait.as_str())).cloned().collect();
+    let schema = resolve(&workspace_root().join(LAUNCHPAD)).unwrap();
+    let host = boot(schema, &workspace_root().join(LAUNCHPAD), Arc::new(DriverAdapter::memory()), &BootEnv::new(), false, HostConfig::default()).unwrap();
+    let leg_payload = value_of(leg["leg"]["payload"].clone()).unwrap();
+    let outcomes = host.dispatch_mount(Some(route), &seeds, RUN_ENTITY, leg_payload).unwrap();
+    let moved: Vec<String> = outcomes.iter().map(|(t, r)| format!("{t}.{}{}", r.event.as_deref().unwrap_or("?"), if r.executed { "" } else { "(x)" })).collect();
+    eprintln!("served moves: {moved:?}");
+    for (t, r) in &outcomes {
+        if !r.cascade_dropped.is_empty() || r.cascade_cut.is_some() {
+            eprintln!("served cascade cut at {t}: dropped {:?} cut {:?}", r.cascade_dropped, r.cascade_cut);
+        }
+        if t == "LaunchpadBehaviorRoute" {
+            eprintln!("served route step: payload {:?} failure {:?} effects {:?} consumed {:?}", r.payload, r.failure, r.effect_results, r.consumed_emits);
+        }
+    }
+    for wait in [0u64, 2, 5] {
+        std::thread::sleep(Duration::from_secs(wait));
+        let data = host.kernel().snapshot_trait("BehaviorCatalogData", Some(RUN_ENTITY));
+        let entity = orbital_core::json_value::value_to_json(&data.entity);
+        eprintln!("served BehaviorCatalogData after +{wait}s: state {:?} entries {} error {}", data.state, entity["entries"].as_array().map_or(0, Vec::len), entity["error"]);
     }
 }
 
@@ -801,6 +862,7 @@ fn launchpad_behavior_deep_link_mount() {
 #[test]
 #[ignore]
 fn catalog_guest_seeded_rows() {
+    orbital_core::logging::init();
     let grants = launchpad_guest_grants().unwrap();
     let seed = seed_program().unwrap();
     for path in std::env::var("CATALOG_SEED_PROBE").unwrap().split(',') {
@@ -826,6 +888,23 @@ fn catalog_guest_seeded_rows() {
                 }
             }
         }
+        if let Ok(address) = std::env::var("CATALOG_CALL") {
+            match opener.run("CALL", json!({ "address": address, "payload": {} })) {
+                Ok(a) => {
+                    let moves: Vec<String> = a["outcomes"].as_array().into_iter().flatten().map(|o| format!("{}.{}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""))).collect();
+                    eprintln!("  call moves {moves:?}");
+                    eprintln!("  call emitted {}", a["emitted"].to_string().chars().take(900).collect::<String>());
+                }
+                Err(e) => eprintln!("  call refused: {e}"),
+            }
+        }
+        if let Ok(ops) = std::env::var("CATALOG_WRITE_OPS") {
+            let ops: Json = serde_json::from_str(&ops).unwrap();
+            match opener.run("CALL", json!({ "address": format!("{SEEDER_TRAIT}.DS_WRITE_CHUNK"), "payload": { "ops": ops } })) {
+                Ok(a) => eprintln!("  write emitted {}", a["emitted"].to_string().chars().take(1200).collect::<String>()),
+                Err(e) => eprintln!("  write refused: {e}"),
+            }
+        }
         if let Ok(spec) = std::env::var("CATALOG_ACT_AS") {
             let (address, persona) = spec.split_once('=').unwrap();
             let answer = opener.run("CALL", json!({ "address": address, "payload": { "persona": persona } }));
@@ -844,6 +923,16 @@ fn catalog_guest_seeded_rows() {
                 for t in answer.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten().filter(|t| t["trait"] == SEEDER_TRAIT) {
                     let e = &t["entity"];
                     eprintln!("  after {second}s: seeder mode {} active {} writes left {} sessions {}", e["dsMode"], e["dsActive"], e["dsWrites"].as_array().map_or(0, Vec::len), e["dsSessions"]);
+                    if second == 1 && std::env::var("CATALOG_REPLAY_FIRST").is_ok() {
+                        if let Some(first) = e["dsWrites"].as_array().and_then(|w| w.first()) {
+                            let labels: Vec<String> = first["ops"].as_array().into_iter().flatten().map(|op| op[1].as_str().unwrap_or("").to_string()).collect();
+                            eprintln!("    first chunk owner {} ops {} labels {labels:?}", first["owner"], labels.len());
+                            match opener.run("CALL", json!({ "address": format!("{SEEDER_TRAIT}.DS_WRITE_CHUNK"), "payload": { "ops": first["ops"] } })) {
+                                Ok(a) => eprintln!("    replay emitted {}", a["emitted"].to_string().chars().take(900).collect::<String>()),
+                                Err(e) => eprintln!("    replay refused: {e}"),
+                            }
+                        }
+                    }
                     if let Some(map) = e.as_object() {
                         let small: Vec<String> = map.iter().filter(|(k, v)| (k.starts_with("ds") || k.starts_with("ac")) && !["dsStores", "dsRegsAll", "dsWrites", "dsWriteAll", "dsStamps", "dsStamped", "dsOlinks"].contains(&k.as_str()) && v.to_string().len() < 200).map(|(k, v)| format!("{k}={v}")).collect();
                         eprintln!("    {}", small.join(" "));
@@ -853,6 +942,15 @@ fn catalog_guest_seeded_rows() {
                     }
                 }
             }
+        }
+        if let Ok(spec) = std::env::var("CATALOG_SIGN_IN_AFTER") {
+            let (address, persona) = spec.split_once('=').unwrap();
+            let signed = opener.run("CALL", json!({ "address": address, "payload": { "persona": persona } }));
+            let signed_events: Vec<String> = signed.as_ref().map(|a| a["emitted"].as_array().into_iter().flatten().filter_map(|e| e["event"].as_str().map(str::to_string)).collect()).unwrap_or_default();
+            eprintln!("  signed in after seeding: {signed_events:?} {}", signed.as_ref().err().cloned().unwrap_or_default());
+            let reloaded = opener.run("CALL", json!({ "address": "INIT", "payload": null }));
+            eprintln!("  reload: {}", reloaded.as_ref().map(|_| "ok".to_string()).unwrap_or_else(|e| e.clone()));
+            std::thread::sleep(std::time::Duration::from_secs(1));
         }
         let orbitals: Vec<String> = program_json["orbitals"].as_array().into_iter().flatten().filter_map(|o| o["name"].as_str().map(str::to_string)).collect();
         for orbital in orbitals {
