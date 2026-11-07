@@ -27,6 +27,7 @@ const GUEST_PLACEHOLDER: &str = "<guest>";
 const FIRING_KINDS: [&str; 3] = ["event", "event-list", "event-map"];
 const LAUNCHPAD: &str = "packages/almadar-std/behaviors/lolo/dev/organisms/std-launchpad.lolo";
 const GUEST_SESSION_TRAIT: &str = "GuestSession";
+const SEEDER_TRAIT: &str = "MockDataMockSeed";
 
 /// The directory `orb` runs from in the monorepo (its working directory), where package discovery starts.
 fn workspace_root() -> PathBuf {
@@ -256,6 +257,32 @@ fn served_open(schema: &OrbitalSchema, source: &Path, route: &str) -> Result<Ser
         orbital_by_trait: circuit.orbital_by_trait,
         host,
     })
+}
+
+/// Each store the mock seeder minted rows for that holds none after the mount: `(collection, minted, stored)`.
+fn unwritten_seed(served: &Served, program: &Json) -> Vec<(String, usize, usize)> {
+    let seeder = served.host.kernel().snapshot_trait(SEEDER_TRAIT, Some(RUN_ENTITY));
+    let entity = orbital_core::json_value::value_to_json(&seeder.entity);
+    let Some(stores) = entity.get("dsStores").and_then(Json::as_object) else { return Vec::new() };
+    let mut entity_of: BTreeMap<String, String> = BTreeMap::new();
+    for orbital in program["orbitals"].as_array().into_iter().flatten() {
+        let owned = std::iter::once(&orbital["entity"]).chain(orbital["auxiliaryEntities"].as_array().into_iter().flatten());
+        for e in owned {
+            if let (Some(name), Some(collection)) = (e["name"].as_str(), e["collection"].as_str()) {
+                entity_of.insert(collection.to_string(), name.to_string());
+            }
+        }
+    }
+    let source = served.host.kernel().entity_source();
+    stores
+        .iter()
+        .filter_map(|(collection, rows)| {
+            let minted = rows.as_array().map_or(0, Vec::len);
+            let name = entity_of.get(collection)?;
+            let stored = source.list(name).map(|r| r.len()).unwrap_or(0);
+            (minted > 0 && stored == 0).then(|| (collection.clone(), minted, stored))
+        })
+        .collect()
 }
 
 fn served_event(served: &Served, trait_name: &str, event: &str) -> Result<Capture, String> {
@@ -544,6 +571,21 @@ fn sweep_behavior(path: &Path, seed: &Result<Json, String>, grants: &Json) -> (V
             guest.as_ref().map(|g| g.capture.clone()).map_err(String::clone),
         );
         sweep.compare(&page, "mount", &served_mount, &guest_mount);
+        // Parity hides a seed that fails the same way on both sides, so a failed seed is its own finding.
+        for (side, capture) in [("served", &served_mount), ("guest", &guest_mount)] {
+            let failed: Vec<Json> = capture
+                .as_ref()
+                .map(|c| c.emitted.as_array().into_iter().flatten().filter(|e| e["event"] == "DATASET_FAILED").cloned().collect())
+                .unwrap_or_default();
+            if !failed.is_empty() {
+                sweep.findings.push(json!({ "behavior": sweep.behavior, "page": page, "step": "mount", "kind": "seed-failed", "side": side, "both": failed }));
+            }
+        }
+        if let Ok(served) = &served {
+            for (collection, minted, stored) in unwritten_seed(served, &program_json) {
+                sweep.findings.push(json!({ "behavior": sweep.behavior, "page": page, "step": "mount", "kind": "seed-not-written", "both": { "collection": collection, "minted": minted, "stored": stored } }));
+            }
+        }
         let (Ok(served), Ok(guest)) = (served, guest) else { continue };
         sweep.handle = guest.handle.clone();
         sweep.compare_rows(&page, "mount", &served_rows(&served), &guest_rows(&guest, &served));
