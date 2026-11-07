@@ -724,3 +724,73 @@ fn launchpad_playground_open_posts_a_server_leg() {
     eprintln!("stateful leg: {}", wire["statefulLeg"].to_string().chars().take(400).collect::<String>());
     eprintln!("BehaviorCatalogData after: {:?}", browser.get_state("BehaviorCatalogData", None));
 }
+
+/// Diagnostic, run by hand: the launchpad's browser kernel mounting a behavior deep link, with the route params a
+/// client mount carries, and what each seed emitted and moved.
+#[test]
+#[ignore]
+fn launchpad_behavior_deep_link_mount() {
+    let program = resolve(&workspace_root().join(LAUNCHPAD)).unwrap();
+    let browser = orbital_core::embed::EmbeddedKernel::new(program, "c1").unwrap();
+    let route = "/almadar-std/std-browse";
+    let circuit = browser.page_circuit(None, Some(route)).unwrap();
+    eprintln!("page: {:?}", circuit.page);
+    let mut traits: Vec<String> = circuit.mounts.iter().map(|s| s.r#trait.clone()).collect();
+    traits.extend(circuit.embedded.iter().filter(|t| !traits.contains(t)).cloned().collect::<Vec<_>>());
+    let entered = browser.enter(Some(route), &format!("c1\u{0}{route}"), traits).unwrap();
+    let payload = value_of(json!({ "package": "almadar-std", "name": "std-browse" })).unwrap();
+    let mounted = browser.dispatch_route_mount(Some(route), &entered.seeds, None, payload).unwrap();
+    let wire = serde_json::to_value(&mounted).unwrap();
+    eprintln!("failed: {}", wire["failed"]);
+    for seed in wire["seeds"].as_array().into_iter().flatten() {
+        let t = seed["seed"]["trait"].as_str().unwrap_or("?");
+        if !(t.starts_with("Launchpad") || t.starts_with("Playground") || t == "BehaviorCatalogData") { continue }
+        let emitted: Vec<&str> = seed["response"]["emittedEvents"].as_array().into_iter().flatten().filter_map(|e| e["event"].as_str()).collect();
+        eprintln!("{t}: emitted {emitted:?} error {}", seed["response"]["error"]);
+    }
+    eprintln!("legs: {}", wire["legs"].to_string().chars().take(1500).collect::<String>());
+    for name in ["LaunchpadStage", "BehaviorCatalogData", "LaunchpadBehaviorRoute", "PlaygroundRoute"] {
+        eprintln!("{name}: {:?}", browser.get_state(name, None));
+    }
+}
+
+/// Diagnostic, run by hand: opens each behavior of `CATALOG_SEED_PROBE` (comma-separated `.lolo` paths) as the catalog
+/// does, on its first route page, and prints how many rows each entity holds after the mount.
+#[test]
+#[ignore]
+fn catalog_guest_seeded_rows() {
+    let grants = launchpad_guest_grants().unwrap();
+    let seed = seed_program().unwrap();
+    for path in std::env::var("CATALOG_SEED_PROBE").unwrap().split(',') {
+        let path = Path::new(path.trim());
+        let program = resolve(path).unwrap();
+        let json = serde_json::to_value(&program).unwrap();
+        let marks = holds_seed_marks(&json);
+        let composed = if marks { program } else { compose_with_seed(&program, &seed).unwrap() };
+        let program_json = serde_json::to_value(&composed).unwrap();
+        let pages = route_pages(&program_json);
+        let Some((name, route)) = pages.first().cloned() else { eprintln!("{}: no route page", path.display()); continue };
+        let opener = Opener::new(&grants).unwrap();
+        let opened = opener.run("OPEN", json!({ "program": program_json, "route": route }));
+        eprintln!("== {} (declares marks: {marks}) page {name} {route}: open {}", path.display(), if opened.is_ok() { "ok".to_string() } else { format!("{opened:?}") });
+        let orbitals: Vec<String> = program_json["orbitals"].as_array().into_iter().flatten().filter_map(|o| o["name"].as_str().map(str::to_string)).collect();
+        for orbital in orbitals {
+            match opener.run("INPUTS", json!({ "orbital": orbital })) {
+                Ok(answer) => {
+                    eprintln!("  {orbital}: keys {:?} state keys {:?}", answer.as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()), answer.get("state").and_then(Json::as_object).map(|o| o.keys().cloned().collect::<Vec<_>>()));
+                    for t in answer.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten() {
+                        let full = t["trait"].as_str() == Some("MockDataMockSeed");
+                        let text = t["entity"].to_string();
+                        if full {
+                            let stores: Vec<String> = t["entity"]["dsStores"].as_object().map(|o| o.iter().map(|(k, v)| format!("{k}:{}", v.as_array().map_or(0, Vec::len))).collect()).unwrap_or_default();
+                            eprintln!("    seeder stores {stores:?}");
+                        } else {
+                            eprintln!("    trait {} state {} entity {}", t["trait"], t["state"], text.chars().take(160).collect::<String>());
+                        }
+                    }
+                }
+                Err(e) => eprintln!("  {orbital}: inputs failed {e}"),
+            }
+        }
+    }
+}
