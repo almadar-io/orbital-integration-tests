@@ -816,11 +816,26 @@ fn catalog_guest_seeded_rows() {
         let opened = opener.run("OPEN", json!({ "program": program_json, "route": route }));
         eprintln!("== {} (declares marks: {marks}) page {name} {route}: open {}", path.display(), if opened.is_ok() { "ok".to_string() } else { format!("{opened:?}") });
         if let Ok(answer) = &opened {
+            let seeder_moves: Vec<String> = answer["outcomes"].as_array().into_iter().flatten().filter(|o| o["trait"] == SEEDER_TRAIT).map(|o| format!("{}{}", o["event"].as_str().unwrap_or(""), if o["fired"] == true { "" } else { "(not fired)" })).collect();
+            let n = seeder_moves.len();
+            eprintln!("  seeder moves ({n}): ...{:?}", &seeder_moves[n.saturating_sub(12)..]);
             for e in answer["emitted"].as_array().into_iter().flatten() {
                 let ev = e["event"].as_str().unwrap_or("");
                 if ev.contains("FAIL") || ev.contains("REFUSED") || ev.starts_with("DATASET") || ev.starts_with("PERSONA") {
                     eprintln!("  emitted {ev}: {}", e["payload"].to_string().chars().take(300).collect::<String>());
                 }
+            }
+        }
+        if let Ok(spec) = std::env::var("CATALOG_ACT_AS") {
+            let (address, persona) = spec.split_once('=').unwrap();
+            let answer = opener.run("CALL", json!({ "address": address, "payload": { "persona": persona } }));
+            match answer {
+                Ok(a) => {
+                    let moves: Vec<String> = a["outcomes"].as_array().into_iter().flatten().map(|o| format!("{}.{}{}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""), if o["fired"] == true { "" } else { "(x)" })).collect();
+                    eprintln!("  act-as moves {moves:?}");
+                    eprintln!("  act-as emitted {}", a["emitted"].to_string().chars().take(800).collect::<String>());
+                }
+                Err(e) => eprintln!("  act-as refused: {e}"),
             }
         }
         for second in [1u64, 3, 6] {
@@ -861,5 +876,49 @@ fn catalog_guest_seeded_rows() {
                 Err(e) => eprintln!("  {orbital}: inputs failed {e}"),
             }
         }
+    }
+}
+
+/// A guest whose INIT makes the mock seeder's kind of call: a keyed, wired self `program/dispatch` into another trait
+/// in a `seed-x` session. `DONE`/`FAIL` record how it settled.
+fn self_dispatch_guest() -> Json {
+    json!({
+        "name": "SelfDispatch", "typeContractVersion": 1,
+        "orbitals": [{
+            "name": "O", "entity": { "name": "Cell", "persistence": "runtime", "fields": [{ "name": "id", "type": "string" }, { "name": "settled", "type": "string" }] },
+            "traits": [
+                { "name": "A", "linkedEntity": "Cell", "stateMachine": { "states": [{ "name": "idle", "isInitial": true }], "transitions": [
+                    { "from": "idle", "to": "idle", "event": "INIT", "effects": [
+                        ["program/dispatch", "O.B.PING", {}, { "orbital": "O", "targetTrait": "B", "event": "PING", "clientId": "seed-x", "wire": true }, { "key": "k", "emit": { "success": "DONE", "failure": "FAIL" } }]] },
+                    { "from": "idle", "to": "idle", "event": "DONE", "effects": [["set", "@entity.settled", "done"]] },
+                    { "from": "idle", "to": "idle", "event": "FAIL", "effects": [["set", "@entity.settled", ["str/concat", "fail ", ["json/stringify", "@payload"]]]] }
+                ] } },
+                { "name": "B", "linkedEntity": "Cell", "stateMachine": { "states": [{ "name": "idle", "isInitial": true }], "transitions": [
+                    { "from": "idle", "to": "idle", "event": "PING", "effects": [["os/getenv", "HOME", { "emit": { "success": "GOT", "failure": "MISSED" } }]] },
+                    { "from": "idle", "to": "idle", "event": "GOT", "effects": [["emit", "PONG", {}]] },
+                    { "from": "idle", "to": "idle", "event": "MISSED", "effects": [["emit", "PONG", {}]] }
+                ] } }
+            ],
+            "osGrants": { "env": ["HOME"] },
+            "pages": [{ "name": "P", "path": "/", "traits": [{ "ref": "A" }] }]
+        }]
+    })
+}
+
+#[test]
+#[ignore]
+fn a_guest_keyed_self_dispatch_settles() {
+    let opener = Opener::new(&json!({ "kernel": [{ "target": "guest", "kinds": ["spawn"] }], "env": ["HOME"] })).unwrap();
+    let program = match std::env::var("SELF_DISPATCH_LOLO") {
+        Ok(path) => serde_json::to_value(resolve(Path::new(&path)).unwrap()).unwrap(),
+        Err(_) => self_dispatch_guest(),
+    };
+    let opened = opener.run("OPEN", json!({ "program": program, "route": "/" }));
+    eprintln!("open: {}", opened.as_ref().map(|a| a["emitted"].to_string()).unwrap_or_else(|e| e.clone()));
+    for second in 0..5 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        let state = opener.run("INPUTS", json!({ "orbital": "O" })).unwrap();
+        let settled: Vec<String> = state.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten().map(|t| format!("{}={}", t["trait"], t["entity"]["settled"])).collect();
+        eprintln!("after {}s: {settled:?}", second + 1);
     }
 }
