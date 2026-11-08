@@ -675,8 +675,8 @@ fn strict_guest() -> Json {
         "orbitals": [{
             "name": "S", "entity": { "name": "Cell", "persistence": "runtime", "fields": [{ "name": "id", "type": "string" }] },
             "traits": [{ "name": "T", "linkedEntity": "Cell",
+                "emits": [{ "event": "OUT", "scope": "external", "payloadSchema": [{ "name": "itemId", "type": "string", "required": true }] }],
                 "stateMachine": { "states": [{ "name": "idle", "isInitial": true }],
-                    "emits": [{ "event": "OUT", "scope": "external", "payloadSchema": [{ "name": "itemId", "type": "string", "required": true }] }],
                     "transitions": [
                         { "from": "idle", "to": "idle", "event": "INIT", "effects": [["render-ui", "main", { "type": "typography", "content": "ready" }]] },
                         { "from": "idle", "to": "idle", "event": "BAD", "effects": [["emit", "OUT", {}]] },
@@ -870,7 +870,7 @@ fn catalog_guest_seeded_rows() {
         let program = resolve(path).unwrap();
         let json = serde_json::to_value(&program).unwrap();
         let marks = holds_seed_marks(&json);
-        let composed = if marks { program } else { compose_with_seed(&program, &seed).unwrap() };
+        let composed = if marks || std::env::var("CATALOG_NO_SEED").is_ok() { program } else { compose_with_seed(&program, &seed).unwrap() };
         let program_json = serde_json::to_value(&composed).unwrap();
         let pages = route_pages(&program_json);
         let Some((name, route)) = pages.first().cloned() else { eprintln!("{}: no route page", path.display()); continue };
@@ -879,6 +879,18 @@ fn catalog_guest_seeded_rows() {
         eprintln!("== {} (declares marks: {marks}) page {name} {route}: open {}", path.display(), if opened.is_ok() { "ok".to_string() } else { format!("{opened:?}") });
         if let Ok(answer) = &opened {
             let seeder_moves: Vec<String> = answer["outcomes"].as_array().into_iter().flatten().filter(|o| o["trait"] == SEEDER_TRAIT).map(|o| format!("{}{}", o["event"].as_str().unwrap_or(""), if o["fired"] == true { "" } else { "(not fired)" })).collect();
+            if let Ok(watch) = std::env::var("CATALOG_WATCH") {
+                for o in program_json["orbitals"].as_array().into_iter().flatten() {
+                    for t in o["traits"].as_array().into_iter().flatten().filter(|t| t["name"] == watch.as_str()) {
+                        eprintln!("  resolved {watch} listens {} events {}", t["listens"], t["stateMachine"]["events"].to_string().chars().take(400).collect::<String>());
+                    }
+                    for t in o["traits"].as_array().into_iter().flatten().filter(|t| t["name"] == "HomeFigureFetcher") {
+                        eprintln!("  resolved HomeFigureFetcher id {} emitIds {}", t["id"], t["emitIds"]);
+                    }
+                }
+                let seen: Vec<String> = answer["outcomes"].as_array().into_iter().flatten().filter(|o| o["trait"] == watch.as_str()).map(|o| format!("{}:{}->{}{}", o["event"].as_str().unwrap_or(""), o["from"].as_str().unwrap_or(""), o["to"].as_str().unwrap_or(""), if o["fired"] == true { "" } else { "(not fired)" })).collect();
+                eprintln!("  open outcomes of {watch}: {seen:?}");
+            }
             let n = seeder_moves.len();
             eprintln!("  seeder moves ({n}): ...{:?}", &seeder_moves[n.saturating_sub(12)..]);
             for e in answer["emitted"].as_array().into_iter().flatten() {
@@ -889,11 +901,15 @@ fn catalog_guest_seeded_rows() {
             }
         }
         if let Ok(address) = std::env::var("CATALOG_CALL") {
-            match opener.run("CALL", json!({ "address": address, "payload": {} })) {
+            let call_payload: Json = std::env::var("CATALOG_CALL_PAYLOAD").ok().and_then(|p| serde_json::from_str(&p).ok()).unwrap_or_else(|| json!({}));
+            match opener.run("CALL", json!({ "address": address, "payload": call_payload })) {
                 Ok(a) => {
-                    let moves: Vec<String> = a["outcomes"].as_array().into_iter().flatten().map(|o| format!("{}.{}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""))).collect();
+                    let moves: Vec<String> = a["outcomes"].as_array().into_iter().flatten().map(|o| format!("{}.{}{}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""), if o["fired"] == true { "" } else { "(not fired)" })).collect();
                     eprintln!("  call moves {moves:?}");
                     eprintln!("  call emitted {}", a["emitted"].to_string().chars().take(900).collect::<String>());
+                    for e in a["emitted"].as_array().into_iter().flatten() {
+                        eprintln!("  call emitted {} keys {:?} totalCount {}", e["event"], e["payload"].as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()), e["payload"]["totalCount"]);
+                    }
                 }
                 Err(e) => eprintln!("  call refused: {e}"),
             }
@@ -967,7 +983,8 @@ fn catalog_guest_seeded_rows() {
                             eprintln!("    seeder mode {} active {} minted {} sessions {} error {}", e["dsMode"], e["dsActive"], e["dsMinted"], e["dsSessions"], e["dsError"]);
                             eprintln!("    seeder persona {}/{} writes left {}", e["dsPersonaOrbital"], e["dsPersonaTrait"], e["dsWrites"].as_array().map_or(0, Vec::len));
                         } else {
-                            eprintln!("    trait {} state {} entity {}", t["trait"], t["state"], text.chars().take(160).collect::<String>());
+                            let watched = std::env::var("CATALOG_WATCH").ok().is_some_and(|w| t["trait"] == w.as_str());
+                            eprintln!("    trait {} state {} entity {}", t["trait"], t["state"], text.chars().take(if watched { 4000 } else { 160 }).collect::<String>());
                         }
                     }
                 }
