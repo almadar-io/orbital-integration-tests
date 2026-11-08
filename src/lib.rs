@@ -78,7 +78,7 @@ pub fn installed_orb(prefix: &str, start: &Path, name: &str) -> PathBuf {
 /// The `orbital_compiler::loader::SourceLowerer` the `orb` binary registers,
 /// for tests whose loader reads a live (`.lolo`) behavior package.
 pub fn lower_lolo_file(path: &Path) -> Result<OrbitalSchema, String> {
-    orbital_lolo::parse_and_lower(path).map_err(|e| e.to_string())
+    orbital_lolo::lower_file(path).map_err(|e| e.to_string())
 }
 
 /// The installed `prefix` package's `name` behavior as a schema: lowered from
