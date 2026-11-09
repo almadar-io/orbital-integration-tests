@@ -879,6 +879,15 @@ fn catalog_guest_seeded_rows() {
         let marks = holds_seed_marks(&json);
         let composed = if marks || std::env::var("CATALOG_NO_SEED").is_ok() { program } else { compose_with_seed(&program, &seed).unwrap() };
         let program_json = serde_json::to_value(&composed).unwrap();
+        if std::env::var("CATALOG_PUSH_FIELDS").is_ok() {
+            for o2 in program_json["orbitals"].as_array().into_iter().flatten() {
+                for e in std::iter::once(&o2["entity"]).chain(o2["auxiliaryEntities"].as_array().into_iter().flatten()) {
+                    if e["name"].as_str().is_some_and(|n| n.contains("PushSubscription")) {
+                        eprintln!("  entity {} collection {} persistence {} createdAt {}", e["name"], e["collection"], e["persistence"], e["fields"].as_array().into_iter().flatten().find(|f| f["name"] == "createdAt").unwrap_or(&Json::Null));
+                    }
+                }
+            }
+        }
         if let Ok(names) = std::env::var("CATALOG_EMBEDS") {
             for o in program_json["orbitals"].as_array().into_iter().flatten() {
                 for t in o["traits"].as_array().into_iter().flatten().filter(|t| names.split(',').any(|n| t["name"] == n)) {
@@ -1015,6 +1024,10 @@ fn catalog_guest_seeded_rows() {
             if let Ok(answer) = opener.run("INPUTS", json!({ "orbital": "MockData" })) {
                 for t in answer.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten().filter(|t| t["trait"] == SEEDER_TRAIT) {
                     let e = &t["entity"];
+                    for r in e["dsRegs"].as_array().into_iter().flatten().filter(|r| r["label"].as_str().is_some_and(|l| l.contains("Push"))) {
+                        eprintln!("  push reg {} store {} seeds {} names {:?} createdAt {}", r["label"], r["store"], r["seeds"], r["fields"].as_array().into_iter().flatten().map(|f| f["name"].as_str().unwrap_or("").to_string()).collect::<Vec<_>>(), r["fields"].as_array().into_iter().flatten().find(|f| f["name"] == "createdAt").unwrap_or(&Json::Null));
+                    }
+                    for w in e["dsWrites"].as_array().into_iter().flatten() { for op in w["ops"].as_array().into_iter().flatten().filter(|op| op[1].as_str().is_some_and(|l| l.contains("Push"))).take(1) { eprintln!("  push op {}", op.to_string().chars().take(260).collect::<String>()); } }
                     eprintln!("  writers: first-owner {} ops {} idRows {} acIds {} acAnswers {} dsViewer {} dsWriters {}", e["dsWrites"][0]["owner"], e["dsWrites"][0]["ops"].as_array().map_or(0, Vec::len), e["dsIdRows"].as_array().map_or(String::new(), |r| r.iter().map(|x| format!("{}:{}", x["id"], x["role"])).collect::<Vec<_>>().join(",")), e["acIds"], e["acAnswers"], e["dsViewer"], e["dsWriters"]);
                     eprintln!("  after {route}: mode {} active {} entities {} error {} marked {} storeKeys {:?} ", e["dsMode"], e["dsActive"], e["dsEntities"], e["dsError"], e["dsMarked"].as_array().map_or(0, Vec::len), e["dsStores"].as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()));
                 }
