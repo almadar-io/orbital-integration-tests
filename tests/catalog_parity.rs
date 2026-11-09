@@ -181,7 +181,8 @@ impl Opener {
                 "name": "Opener",
                 "entity": { "name": "Box", "persistence": "runtime", "fields": [
                     { "name": "id", "type": "string" }, { "name": "guest", "type": "string" },
-                    { "name": "answer", "type": "object", "nullable": true }, { "name": "failed", "type": "object", "nullable": true }] },
+                    { "name": "answer", "type": "object", "nullable": true }, { "name": "failed", "type": "object", "nullable": true },
+                    { "name": "ticks", "type": "array", "default": [] }] },
                 "traits": [{
                     "name": "Opener", "linkedEntity": "Box",
                     "stateMachine": {
@@ -197,6 +198,12 @@ impl Opener {
                                 ["set", "@entity.failed", null]] },
                             { "from": "idle", "to": "idle", "event": "CALL", "effects": [
                                 ["program/dispatch", "@payload.address", "@payload.payload", { "guest": "@entity.guest", "emit": emit["emit"] }]] },
+                            { "from": "idle", "to": "idle", "event": "LIVE", "effects": [
+                                ["program/live", { "kind": "guest", "guest": "@entity.guest" }, { "key": "probe-ticks", "emit": { "onMessage": "TICKED", "failure": "FAILED" } }]] },
+                            { "from": "idle", "to": "idle", "event": "TICKED", "effects": [
+                                ["set", "@entity.ticks", ["array/concat", "@entity.ticks", ["@payload"]]]] },
+                            { "from": "idle", "to": "idle", "event": "NAVIGATE", "effects": [
+                                ["program/navigate", { "guest": "@entity.guest", "route": "@payload.route", "remount": ["default", "@payload.remount", false] }, emit]] },
                             { "from": "idle", "to": "idle", "event": "INPUTS", "effects": [
                                 ["program/inputs", { "guest": "@entity.guest", "state": "@payload.orbital" }, emit]] },
                             { "from": "idle", "to": "idle", "event": "CLOSE", "effects": [
@@ -921,6 +928,61 @@ fn catalog_guest_seeded_rows() {
                 Err(e) => eprintln!("  write refused: {e}"),
             }
         }
+        if let Ok(address) = std::env::var("CATALOG_TICK_STREAM") {
+            let started = opener.run("LIVE", json!({}));
+            eprintln!("  live: {}", started.as_ref().map(|a| a.to_string()).unwrap_or_else(|e| e.clone()).chars().take(300).collect::<String>());
+            if std::env::var("CATALOG_TICK_REMOUNT").is_ok() {
+                let remounted = opener.run("NAVIGATE", json!({ "route": "/", "remount": true }));
+                eprintln!("  remount: {}", remounted.as_ref().map(|a| a["page"].to_string()).unwrap_or_else(|e| e.clone()).chars().take(200).collect::<String>());
+            }
+            let called = opener.run("CALL", json!({ "address": address, "payload": {} }));
+            eprintln!("  call {address}: {}", called.as_ref().map(|a| a["outcomes"].to_string()).unwrap_or_else(|e| e.clone()).chars().take(600).collect::<String>());
+            std::thread::sleep(Duration::from_secs(3));
+            let entity = orbital_core::json_value::value_to_json(&opener.host.kernel().snapshot_trait("Opener", Some(RUN_ENTITY)).entity);
+            let ticks = entity["ticks"].as_array().cloned().unwrap_or_default();
+            eprintln!("  tick items after 3s: {}", ticks.len());
+            let painting: Vec<&Json> = ticks.iter().filter(|t| t["rendered"].as_array().is_some_and(|r| !r.is_empty())).collect();
+            eprintln!("  items that painted: {}", painting.len());
+            for t in painting.iter().take(3) {
+                let painted: Vec<String> = t["rendered"].as_array().into_iter().flatten().map(|p| format!("{}: {}", p["trait"].as_str().unwrap_or(""), p["content"].to_string().chars().take(160).collect::<String>())).collect();
+                eprintln!("    painted {painted:?}");
+            }
+            let executed: usize = ticks.iter().filter(|t| t["outcomes"].as_array().into_iter().flatten().any(|o| o["fired"] == true)).count();
+            eprintln!("  items with a fired outcome: {executed}");
+            for t in ticks.iter().take(3) {
+                let traits: Vec<String> = t["outcomes"].as_array().into_iter().flatten().map(|o| format!("{}.{}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""))).collect();
+                let painted: Vec<&str> = t["rendered"].as_array().into_iter().flatten().filter_map(|p| p["trait"].as_str()).collect();
+                eprintln!("    moved {traits:?} painted {painted:?}");
+            }
+            eprintln!("  failed: {}", entity["failed"]);
+        }
+        if let Ok(route) = std::env::var("CATALOG_NAVIGATE") {
+            let started = std::time::Instant::now();
+            match opener.run("NAVIGATE", json!({ "route": route })) {
+                Ok(a) => {
+                    let rendered = a["rendered"].as_array().map_or(0, Vec::len);
+                    eprintln!("  navigate {route}: {:?} route {} page {} rendered {rendered} bytes {} outcomes {}", started.elapsed(), a["route"], a["page"], a.to_string().len(), a["outcomes"].as_array().map_or(0, Vec::len));
+                    eprintln!("  navigate parts {:?}", a.as_object().map(|o| o.iter().map(|(k, v)| (k.clone(), v.to_string().len())).collect::<Vec<_>>()));
+                    let mut moves: Vec<(usize, String)> = a["outcomes"].as_array().into_iter().flatten().map(|o| (o.to_string().len(), format!("{}.{} keys {:?}", o["trait"].as_str().unwrap_or("?"), o["event"].as_str().unwrap_or("?"), o.as_object().map(|m| m.iter().map(|(k, v)| (k.clone(), v.to_string().len())).filter(|(_, n)| *n > 10_000).collect::<Vec<_>>())))).collect();
+                    moves.sort_by(|x, y| y.0.cmp(&x.0));
+                    eprintln!("  largest outcomes {:?}", &moves[..moves.len().min(8)]);
+                    if let Ok(dump) = std::env::var("CATALOG_DUMP_PAINT") {
+                        for p in a["rendered"].as_array().into_iter().flatten().filter(|p| p["trait"] == dump.as_str()) {
+                            eprintln!("  paint {dump}: {p}");
+                        }
+                    }
+                    let big: Vec<(String, usize)> = a["emitted"].as_array().into_iter().flatten().map(|e| (e["event"].as_str().unwrap_or("?").to_string(), e.to_string().len())).filter(|(_, n)| *n > 100_000).collect();
+                    eprintln!("  big emits ({}) {big:?}", big.len());
+                    for e in a["emitted"].as_array().into_iter().flatten().filter(|e| e.to_string().len() > 100_000).take(2) {
+                        eprintln!("  big emit keys {:?} source {:?}", e.as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()), e.get("source").or(e.get("trait")));
+                    }
+                    let mut sizes: Vec<(usize, String)> = a["rendered"].as_array().into_iter().flatten().map(|p| (p.to_string().len(), format!("{}@{}", p["trait"].as_str().unwrap_or("?"), p["slot"].as_str().unwrap_or("?")))).collect();
+                    sizes.sort_by(|x, y| y.0.cmp(&x.0));
+                    eprintln!("  largest paints {:?}", &sizes[..sizes.len().min(10)]);
+                }
+                Err(e) => eprintln!("  navigate {route} refused after {:?}: {e}", started.elapsed()),
+            }
+        }
         if let Ok(spec) = std::env::var("CATALOG_ACT_AS") {
             let (address, persona) = spec.split_once('=').unwrap();
             let answer = opener.run("CALL", json!({ "address": address, "payload": { "persona": persona } }));
@@ -1054,3 +1116,4 @@ fn project_friday_resolve_timing() {
     let traits: usize = schema.orbitals.iter().map(|o| o.traits.len()).sum();
     eprintln!("project-friday: parse {parsed:?}, resolve {:?}, total {total:?}; {} orbitals, {traits} traits", total - parsed, schema.orbitals.len());
 }
+
