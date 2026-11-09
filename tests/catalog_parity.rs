@@ -191,7 +191,7 @@ impl Opener {
                             { "from": "idle", "to": "idle", "event": "RESET", "effects": [
                                 ["set", "@entity.answer", null], ["set", "@entity.failed", null]] },
                             { "from": "idle", "to": "idle", "event": "OPEN", "effects": [
-                                ["program/open", "@payload.program", { "route": "@payload.route", "declared": true }, { "emit": { "success": "OPENED", "failure": "FAILED" } }]] },
+                                ["program/open", "@payload.program", { "route": "@payload.route", "declared": true, "integrations": "@payload.integrations" }, { "emit": { "success": "OPENED", "failure": "FAILED" } }]] },
                             { "from": "idle", "to": "idle", "event": "OPENED", "effects": [
                                 ["set", "@entity.guest", "@payload.result.guest"],
                                 ["set", "@entity.answer", "@payload.result"],
@@ -879,10 +879,18 @@ fn catalog_guest_seeded_rows() {
         let marks = holds_seed_marks(&json);
         let composed = if marks || std::env::var("CATALOG_NO_SEED").is_ok() { program } else { compose_with_seed(&program, &seed).unwrap() };
         let program_json = serde_json::to_value(&composed).unwrap();
+        if let Ok(names) = std::env::var("CATALOG_EMBEDS") {
+            for o in program_json["orbitals"].as_array().into_iter().flatten() {
+                for t in o["traits"].as_array().into_iter().flatten().filter(|t| names.split(',').any(|n| t["name"] == n)) {
+                    eprintln!("  trait {} id {} traitEmbedIds {}", t["name"], t["id"], t["traitEmbedIds"]);
+                }
+            }
+        }
         let pages = route_pages(&program_json);
         let Some((name, route)) = pages.first().cloned() else { eprintln!("{}: no route page", path.display()); continue };
         let opener = Opener::new(&grants).unwrap();
-        let opened = opener.run("OPEN", json!({ "program": program_json, "route": route }));
+        let integrations = std::env::var("CATALOG_INTEGRATIONS").unwrap_or_else(|_| "live".to_string());
+        let opened = opener.run("OPEN", json!({ "program": program_json, "route": route, "integrations": integrations }));
         eprintln!("== {} (declares marks: {marks}) page {name} {route}: open {}", path.display(), if opened.is_ok() { "ok".to_string() } else { format!("{opened:?}") });
         if let Ok(answer) = &opened {
             let seeder_moves: Vec<String> = answer["outcomes"].as_array().into_iter().flatten().filter(|o| o["trait"] == SEEDER_TRAIT).map(|o| format!("{}{}", o["event"].as_str().unwrap_or(""), if o["fired"] == true { "" } else { "(not fired)" })).collect();
@@ -956,7 +964,26 @@ fn catalog_guest_seeded_rows() {
             }
             eprintln!("  failed: {}", entity["failed"]);
         }
-        if let Ok(route) = std::env::var("CATALOG_NAVIGATE") {
+        if let Ok(spec) = std::env::var("CATALOG_ACT_AS_FIRST") {
+            let (address, persona) = spec.split_once('=').unwrap();
+            match opener.run("CALL", json!({ "address": address, "payload": { "persona": persona } })) {
+                Ok(a) => eprintln!("  act-as-first emitted {}", a["emitted"].to_string().chars().take(300).collect::<String>()),
+                Err(e) => eprintln!("  act-as-first refused: {e}"),
+            }
+        }
+        if std::env::var("CATALOG_REMOUNT_FIRST").is_ok() {
+            match opener.run("NAVIGATE", json!({ "route": route, "remount": true })) {
+                Ok(_) => eprintln!("  remounted {route}"),
+                Err(e) => eprintln!("  remount refused: {e}"),
+            }
+            if let Ok(answer) = opener.run("INPUTS", json!({ "orbital": "MockData" })) {
+                for t in answer.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten().filter(|t| t["trait"] == SEEDER_TRAIT) {
+                    let e = &t["entity"];
+                    eprintln!("  after remount: active {} error {} marked {} idRows {} entities {}", e["dsActive"], e["dsError"], e["dsMarked"].as_array().map_or(0, Vec::len), e["dsIdRows"].as_array().map_or(0, Vec::len), e["dsEntities"]);
+                }
+            }
+        }
+        for route in std::env::var("CATALOG_NAVIGATE").ok().into_iter().flat_map(|routes| routes.split(',').map(str::to_string).collect::<Vec<_>>()) {
             let started = std::time::Instant::now();
             match opener.run("NAVIGATE", json!({ "route": route })) {
                 Ok(a) => {
@@ -966,6 +993,9 @@ fn catalog_guest_seeded_rows() {
                     let mut moves: Vec<(usize, String)> = a["outcomes"].as_array().into_iter().flatten().map(|o| (o.to_string().len(), format!("{}.{} keys {:?}", o["trait"].as_str().unwrap_or("?"), o["event"].as_str().unwrap_or("?"), o.as_object().map(|m| m.iter().map(|(k, v)| (k.clone(), v.to_string().len())).filter(|(_, n)| *n > 10_000).collect::<Vec<_>>())))).collect();
                     moves.sort_by(|x, y| y.0.cmp(&x.0));
                     eprintln!("  largest outcomes {:?}", &moves[..moves.len().min(8)]);
+                    if let Ok(file) = std::env::var("CATALOG_DUMP_RENDERED") {
+                        std::fs::write(&file, a["rendered"].to_string()).unwrap();
+                    }
                     if let Ok(dump) = std::env::var("CATALOG_DUMP_PAINT") {
                         for p in a["rendered"].as_array().into_iter().flatten().filter(|p| p["trait"] == dump.as_str()) {
                             eprintln!("  paint {dump}: {p}");
@@ -981,6 +1011,22 @@ fn catalog_guest_seeded_rows() {
                     eprintln!("  largest paints {:?}", &sizes[..sizes.len().min(10)]);
                 }
                 Err(e) => eprintln!("  navigate {route} refused after {:?}: {e}", started.elapsed()),
+            }
+            if let Ok(answer) = opener.run("INPUTS", json!({ "orbital": "MockData" })) {
+                for t in answer.pointer("/state/traits").and_then(Json::as_array).into_iter().flatten().filter(|t| t["trait"] == SEEDER_TRAIT) {
+                    let e = &t["entity"];
+                    eprintln!("  writers: first-owner {} ops {} idRows {} acIds {} acAnswers {} dsViewer {} dsWriters {}", e["dsWrites"][0]["owner"], e["dsWrites"][0]["ops"].as_array().map_or(0, Vec::len), e["dsIdRows"].as_array().map_or(String::new(), |r| r.iter().map(|x| format!("{}:{}", x["id"], x["role"])).collect::<Vec<_>>().join(",")), e["acIds"], e["acAnswers"], e["dsViewer"], e["dsWriters"]);
+                    eprintln!("  after {route}: mode {} active {} entities {} error {} marked {} storeKeys {:?} ", e["dsMode"], e["dsActive"], e["dsEntities"], e["dsError"], e["dsMarked"].as_array().map_or(0, Vec::len), e["dsStores"].as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()));
+                }
+            }
+            if let Ok(address) = std::env::var("CATALOG_CALL_AFTER_NAVIGATE") {
+                match opener.run("CALL", json!({ "address": address, "payload": {} })) {
+                    Ok(a) => {
+                        let moved: Vec<String> = a["outcomes"].as_array().into_iter().flatten().map(|o| format!("{}.{}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""))).collect();
+                        eprintln!("  after-navigate call moved {moved:?} emitted {}", a["emitted"]);
+                    }
+                    Err(e) => eprintln!("  after-navigate call refused: {e}"),
+                }
             }
         }
         if let Ok(spec) = std::env::var("CATALOG_ACT_AS") {
