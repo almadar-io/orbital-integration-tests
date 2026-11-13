@@ -25,3 +25,5 @@ orbital-shell-ios = { git = "https://github.com/almadar-io/orbital-shell-ios", b
 orbital-shell-android = { git = "https://github.com/almadar-io/orbital-shell-android", branch = "main" }
 orbital-shell-chrome = { git = "https://github.com/almadar-io/orbital-shell-typescript", branch = "main" }
 chrono = { version = "0.4", features = ["serde"] }
+p256 = { version = "0.13", default-features = false, features = ["alloc", "ecdsa"] }
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }

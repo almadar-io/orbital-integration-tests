@@ -1,0 +1,86 @@
+app sign-in-e2e [
+  version: "1.0.0",
+  env: ["CORS_ORIGIN", "PORT", "VAPID_PUBLIC_KEY", "ORB_TICK_INVOKER", "ALMADAR_API_KEY_SALT", "NODE_ENV", "AUTH_PROVIDER", "OIDC_ISSUER_URL", "OIDC_AUDIENCE", "FIREBASE_PROJECT_ID", "FIREBASE_SERVICE_ACCOUNT_PATH", "FIREBASE_AUTH_EMULATOR_HOST", "FIRESTORE_EMULATOR_HOST", "ALMADAR_INTEGRATIONS_MODE"],
+  fs: { cwd: "data/**": [read, write, create, remove], cwd: "dist/client/**": [read] },
+  net: { "127.0.0.1", env PORT: [listen], "127.0.0.1:47613": [tcp] },
+  description: "sign-in-e2e — the served sign-in fixture of orbital-integration-tests: std-http-server over a file row store, its bearer verifier reading an OIDC key set from a local plain-HTTP key server on 127.0.0.1:47613, and one page trait that answers who the request's viewer is.",
+  egress: ["http://127.0.0.1:47613"],
+  store: Rows
+]
+
+uses Server from "std/behaviors/std-http-server"
+uses RowStoreA from "std/behaviors/std-row-store-file"
+
+orbital Rows = RowStoreA.orbitals.RowStoreFileOrbital {
+  traits {
+    RowStoreDriver {
+      config { dir: "data/rows/" }
+    }
+  }
+}
+
+orbital Api = Server.orbitals.HttpServerOrbital {
+  config {
+    host: "127.0.0.1"
+    identityEntity: Person
+    ownOrbital: Api
+    ownTrait: ApiServerBinding
+  }
+  traits {
+    BearerHttp {
+      config {
+        host: "127.0.0.1"
+        port: 47613
+        tls: false
+        serverName: ""
+      }
+    }
+    ServerBearer {
+      config {
+        jwksPath: "/jwks"
+        keysFormat: "jwks"
+      }
+    }
+  }
+}
+
+orbital Whoami {
+  entity Person [runtime, identity] {
+    @read none "The fixture's viewers read only themselves through @user."
+    @create none "Identity rows are made by identity/sign-in from the verified claims."
+    id : string! @description "The verified subject."
+    email : string @description "The verified email claim." = ""
+    name : string @description "The verified name claim." = ""
+    role : string @description "What the person may do." = ""
+  }
+
+  entity Answer [runtime] {
+    id : string!
+    who : string @description "The viewer the last WHO_AM_I ran as." = ""
+  }
+
+  trait Asker -> Answer {
+    initial: idle
+
+    state idle {
+      INIT -> idle
+        (render-ui main { type: "typography", content: "Who am I?" })
+      WHO_AM_I -> idle
+        (set @entity.who @user.id)
+        (emit ANSWERED { who: @user.id })
+        (render-ui main { type: "typography", content: @user.id })
+    }
+
+    emits {
+      ANSWERED -> external { who : string! }
+        @description "Who the request ran as."
+    }
+
+    listens {
+      WHO_AM_I -> input { }
+        @description "Answer who this request's viewer is."
+    }
+  }
+
+  page "/" as Home -> Asker
+}
