@@ -71,6 +71,8 @@ fn table() -> Vec<Row> {
         // `event`, `eventaddress`, which lower to `String`): the explicit-cast rule is a
         // language-level check, not a rendered type, so no shell loses a value.
         Row { name: "CallKey", ty: OirType::CallKey, ts: F, kotlin: F, swift: F },
+        // A catalog key is a string at rest too; only the checker treats it as nominal.
+        Row { name: "MessageKey", ty: OirType::MessageKey, ts: F, kotlin: F, swift: F },
         // A field reference is the field's name, a string at rest, like `callkey`.
         Row { name: "FieldRef", ty: OirType::FieldRef { record: Box::new(OirType::reference("@entity")), value: None }, ts: F, kotlin: F, swift: F },
         // Phase 3: TS has always spelled the closed union; Kotlin
