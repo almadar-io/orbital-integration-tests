@@ -150,7 +150,7 @@ fn every_variant_matches_the_enumeration_table_per_shell() {
 #[test]
 fn per_shell_counts_match_the_table_summary() {
     let rows = table();
-    assert_eq!(rows.len(), 28, "the table enumerates 28 OirType variants");
+    assert_eq!(rows.len(), 29, "the table enumerates 29 OirType variants");
     let count = |f: fn(&Row) -> TypeMappingClass| {
         let mut counts = (0, 0, 0);
         for row in &rows {
@@ -164,9 +164,9 @@ fn per_shell_counts_match_the_table_summary() {
     };
     // (faithful, widening, lossy) per the Phase-3D-amended summary (TypeRef
     // flipped Lossy→Faithful in Kotlin/Swift/Python/Rust); Instant is ISO text like DateTime (2026-10-28 ruling).
-    assert_eq!(count(|r| r.ts), (16, 12, 0), "TypeScript");
-    assert_eq!(count(|r| r.kotlin), (13, 14, 1), "Kotlin");
-    assert_eq!(count(|r| r.swift), (13, 14, 1), "Swift");
+    assert_eq!(count(|r| r.ts), (17, 12, 0), "TypeScript");
+    assert_eq!(count(|r| r.kotlin), (14, 14, 1), "Kotlin");
+    assert_eq!(count(|r| r.swift), (14, 14, 1), "Swift");
 }
 
 /// A tuple of unlike slots has no typed spelling in the json-carrier shells: it is a list of their untyped value.
