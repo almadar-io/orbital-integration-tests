@@ -10,7 +10,7 @@ description = "Cross-crate tests that need the private compiler, the shared nati
 name = "orbital_test_support"
 
 [dependencies]
-orbital-core = { git = "https://github.com/almadar-io/orbital-core", branch = "main" }
+orbital-core = { git = "https://github.com/almadar-io/orbital-core", branch = "main", features = ["native"] }
 orbital-lolo = { git = "https://github.com/almadar-io/orbital-lolo", branch = "main" }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
 
