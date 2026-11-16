@@ -92,7 +92,7 @@ pub fn installed_schema(prefix: &str, start: &Path, name: &str) -> OrbitalSchema
         RegistrySource::Materialized(_) => {
             let json = fs::read_to_string(&path)
                 .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-            let mut schema: OrbitalSchema = serde_json::from_str(&json)
+            let mut schema: OrbitalSchema = orbital_core::json_value::from_json_str(&json)
                 .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
             orbital_core::stamp::ensure_stamped(&mut schema);
             schema
@@ -252,7 +252,7 @@ pub fn link_installed_core(project: &Path, start: &Path) {
 /// the web conformance test also reads; a pattern without the tag is not listed.
 pub fn declared_pattern_roles(typescript_shell: &Path) -> std::collections::BTreeMap<String, String> {
     let registry_path = typescript_shell.join("core/src/patterns/patterns-registry.json");
-    let registry: serde_json::Value = serde_json::from_str(
+    let registry: serde_json::Value = orbital_core::json_value::from_json_str(
         &fs::read_to_string(&registry_path).unwrap_or_else(|e| panic!("read {}: {e}", registry_path.display())),
     )
     .unwrap_or_else(|e| panic!("parse {}: {e}", registry_path.display()));

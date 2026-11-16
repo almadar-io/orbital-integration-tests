@@ -92,13 +92,13 @@ fn holds_seed_marks(program: &Json) -> bool {
 }
 
 fn value_of(json: Json) -> Result<orbital_core::Value, String> {
-    serde_json::from_value(json).map_err(|e| e.to_string())
+    orbital_core::json_value::from_json_value(&json).map_err(|e| e.to_string())
 }
 
 fn compose_with_seed(program: &OrbitalSchema, seed: &Json) -> Result<OrbitalSchema, String> {
     let programs = vec![value_of(serde_json::to_value(program).map_err(|e| e.to_string())?)?, value_of(seed.clone())?];
     let composed = orbital_compiler::composition::compose_programs(programs, &program.name, None, None, None, COMPOSE_NOW, &source_of)?;
-    serde_json::from_value(orbital_core::json_value::value_to_json(&composed)).map_err(|e| e.to_string())
+    orbital_core::json_value::from_json_value(&orbital_core::json_value::value_to_json(&composed)).map_err(|e| e.to_string())
 }
 
 #[derive(Clone, PartialEq)]
@@ -173,7 +173,7 @@ struct Opener {
 impl Opener {
     fn new(grants: &Json) -> Result<Self, String> {
         let emit = json!({ "emit": { "success": "ANSWERED", "failure": "FAILED" } });
-        let schema: OrbitalSchema = serde_json::from_value(json!({
+        let schema: OrbitalSchema = orbital_core::json_value::from_json_value(&json!({
             "name": "CatalogParityOpener",
             "typeContractVersion": 1,
             "osGrants": grants,
@@ -545,7 +545,7 @@ fn sweep_behavior(path: &Path, seed: &Result<Json, String>, grants: &Json) -> (V
             return (sweep.findings, sweep.notes);
         }
     };
-    let held: orbital_core::runtime::os_grants::OsGrants = match serde_json::from_value(grants.clone()) {
+    let held: orbital_core::runtime::os_grants::OsGrants = match orbital_core::json_value::from_json_value(&grants) {
         Ok(held) => held,
         Err(e) => {
             sweep.finding("", "opener", "open-failed", Json::Null, json!({ "error": e.to_string() }));
@@ -654,7 +654,7 @@ fn the_catalog_guest_open_matches_the_served_registration() {
     let seed = seed_program();
     let grants = match std::env::var("CATALOG_PARITY_GRANTS") {
         Ok(file) => match std::fs::read_to_string(&file) {
-            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| panic!("CATALOG_PARITY_GRANTS {file}: {e}")),
+            Ok(text) => orbital_core::json_value::from_json_str(&text).unwrap_or_else(|e| panic!("CATALOG_PARITY_GRANTS {file}: {e}")),
             Err(_) => {
                 let resolved = launchpad_guest_grants().unwrap_or_else(|e| panic!("the launchpad's guest grants: {e}"));
                 std::fs::write(&file, resolved.to_string()).unwrap_or_else(|e| panic!("CATALOG_PARITY_GRANTS {file}: {e}"));
@@ -925,7 +925,7 @@ fn catalog_guest_seeded_rows() {
             }
         }
         if let Ok(address) = std::env::var("CATALOG_CALL") {
-            let call_payload: Json = std::env::var("CATALOG_CALL_PAYLOAD").ok().and_then(|p| serde_json::from_str(&p).ok()).unwrap_or_else(|| json!({}));
+            let call_payload: Json = std::env::var("CATALOG_CALL_PAYLOAD").ok().and_then(|p| orbital_core::json_value::from_json_str(&p).ok()).unwrap_or_else(|| json!({}));
             match opener.run("CALL", json!({ "address": address, "payload": call_payload })) {
                 Ok(a) => {
                     let moves: Vec<String> = a["outcomes"].as_array().into_iter().flatten().map(|o| format!("{}.{}{}", o["trait"].as_str().unwrap_or(""), o["event"].as_str().unwrap_or(""), if o["fired"] == true { "" } else { "(not fired)" })).collect();
@@ -939,7 +939,7 @@ fn catalog_guest_seeded_rows() {
             }
         }
         if let Ok(ops) = std::env::var("CATALOG_WRITE_OPS") {
-            let ops: Json = serde_json::from_str(&ops).unwrap();
+            let ops: Json = orbital_core::json_value::from_json_str(&ops).unwrap();
             match opener.run("CALL", json!({ "address": format!("{SEEDER_TRAIT}.DS_WRITE_CHUNK"), "payload": { "ops": ops } })) {
                 Ok(a) => eprintln!("  write emitted {}", a["emitted"].to_string().chars().take(1200).collect::<String>()),
                 Err(e) => eprintln!("  write refused: {e}"),

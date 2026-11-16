@@ -37,7 +37,7 @@ mod http1_listen_parity {
     ];
 
     fn v(json: Json) -> Value {
-        serde_json::from_value(json).expect("a kernel value")
+        orbital_core::json_value::from_json_value(&json).expect("a kernel value")
     }
 
     fn b64(bytes: &[u8]) -> String {
@@ -79,7 +79,7 @@ mod http1_listen_parity {
         if options.get("wire") == Some(&Value::Bool(true)) {
             response = kernel.client_view(response);
         }
-        serde_json::to_value(&response).and_then(serde_json::from_value).map_err(|e| failure(e.to_string()))
+        serde_json::to_value(&response).and_then(|v| orbital_core::json_value::from_json_value(&v)).map_err(|e| failure(e.to_string()))
     }
 
     fn json_of(value: &Value) -> Json {
@@ -112,7 +112,7 @@ mod http1_listen_parity {
                 }
             }
         }
-        serde_json::from_value(json).expect("schema back from json")
+        orbital_core::json_value::from_json_value(&json).expect("schema back from json")
     }
 
     /// Knobs are set before resolve (the atom's own config) and after it (config a composed trait inherits).
@@ -157,7 +157,7 @@ mod http1_listen_parity {
         }
 
         fn boot_on(path: std::path::PathBuf, port: u16, knobs: &[(&str, Json)]) -> Server {
-            let grants: Arc<OsGrants> = Arc::new(serde_json::from_value(json!({ "net": [{ "target": format!("127.0.0.1:{port}"), "kinds": ["listen"] }], "env": ["PORT"] })).expect("grants"));
+            let grants: Arc<OsGrants> = Arc::new(orbital_core::json_value::from_json_value(&json!({ "net": [{ "target": format!("127.0.0.1:{port}"), "kinds": ["listen"] }], "env": ["PORT"] })).expect("grants"));
             let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
             let config = KernelConfig { substrate_handler: Some(Arc::new(NoDirectSubstrate)), ..KernelConfig::default() };
             let kernel = Arc::new(RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), config));
@@ -285,7 +285,7 @@ mod http1_listen_parity {
 
     #[test]
     fn std_http1_answers_every_case_with_the_bytes_the_http_operators_wrote() {
-        let want: Vec<Json> = serde_json::from_str(RECORDED).expect("recorded");
+        let want: Vec<Json> = orbital_core::json_value::from_json_str(RECORDED).expect("recorded");
         let got = atom();
         assert_eq!(want.len(), CASES.len(), "control: one recording per case");
         for ((case, want), (got_record, got_bytes)) in CASES.iter().zip(&want).zip(&got) {
@@ -541,7 +541,7 @@ mod http1_listen_parity {
         let (status, headers, body) = parsed(reply);
         assert_eq!(status, "HTTP/1.1 200 OK", "mint reply {reply:?}; events {:?}; errors {:?}", server.events.lock().expect("events").iter().filter(|(e, _)| e.starts_with("TICKET") || e.starts_with("SEED") || e.starts_with("MINT") || e.starts_with("IDENTITY") || e.starts_with("CREDENTIAL")).collect::<Vec<_>>(), server.errors.lock().expect("errors"));
         assert_eq!(header(&headers, "content-type"), Some("application/json"), "mint content-type in {reply:?}");
-        let json: Json = serde_json::from_str(&body).unwrap_or_else(|e| panic!("mint body {body:?}: {e}"));
+        let json: Json = orbital_core::json_value::from_json_str(&body).unwrap_or_else(|e| panic!("mint body {body:?}: {e}"));
         let ticket = json["ticket"].as_str().unwrap_or_else(|| panic!("no ticket in {json}")).to_string();
         assert_eq!(json.as_object().map(|o| o.len()), Some(1), "the mint answers only {{ticket}}: {json}");
         assert_eq!(ticket.len(), 43, "32 bytes base64url unpadded: {ticket}");
@@ -552,7 +552,7 @@ mod http1_listen_parity {
         let (status, headers, body) = parsed(reply);
         assert_eq!(status, "HTTP/1.1 401 Unauthorized", "{what}: {reply:?}");
         assert_eq!(header(&headers, "content-type"), Some("application/json"), "{what}: {reply:?}");
-        assert_eq!(serde_json::from_str::<Json>(&body).expect("401 body json"), json!({ "error": "Unauthorized", "code": "UNAUTHORIZED" }), "{what}");
+        assert_eq!(orbital_core::json_value::from_json_str::<Json>(&body).expect("401 body json"), json!({ "error": "Unauthorized", "code": "UNAUTHORIZED" }), "{what}");
     }
 
     /// The organism boots and routes: GET /api/health answers 200 { status, version }.
@@ -563,7 +563,7 @@ mod http1_listen_parity {
         let (status, headers, body) = parsed(&reply);
         assert_eq!(status, "HTTP/1.1 200 OK", "{reply:?}");
         assert_eq!(header(&headers, "content-type"), Some("application/json"), "{reply:?}");
-        assert_eq!(serde_json::from_str::<Json>(&body).expect("health json"), json!({ "status": "healthy", "version": "0.0.0" }));
+        assert_eq!(orbital_core::json_value::from_json_str::<Json>(&body).expect("health json"), json!({ "status": "healthy", "version": "0.0.0" }));
         server.finish();
     }
 
@@ -644,7 +644,7 @@ mod machine_parity {
         let store: Arc<dyn EntitySource> = Arc::new(InMemoryEntityCache::new());
         let kernel = RuntimeKernel::new(RuntimeEnvironment::Server, store.clone(), KernelConfig::default());
         kernel.register_schema(resolved_lolo("almadar-std/behaviors/lolo/dev/atoms/std-machine.lolo")).expect("register");
-        let payload: Value = serde_json::from_value(json!({ "program": serde_json::to_value(program).expect("program json") })).expect("payload");
+        let payload: Value = orbital_core::json_value::from_json_value(&json!({ "program": serde_json::to_value(program).expect("program json") })).expect("payload");
         let progress = kernel.start_dispatch("Machine", None, "MACHINE_READ", payload, None, None).unwrap_or_else(|e| panic!("dispatch: {e:?}"));
         let answer = |request: &IoRequest| BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(request);
         let outcomes = drive_blocking(&kernel, progress, &answer).unwrap_or_else(|e| panic!("drive: {e:?}"));
@@ -673,7 +673,7 @@ mod machine_parity {
 
     fn recorded(name: &str) -> Json {
         let (_, rows) = RECORDED.iter().find(|(n, _)| *n == name).unwrap_or_else(|| panic!("no recording for {name}"));
-        serde_json::from_str(rows).expect("recorded")
+        orbital_core::json_value::from_json_str(rows).expect("recorded")
     }
 
     fn assert_parity(name: &str, program: &OrbitalSchema) {
@@ -697,7 +697,7 @@ mod machine_parity {
 
     #[test]
     fn machine_rows_match_on_a_from_list() {
-        let program: OrbitalSchema = serde_json::from_value(json!({
+        let program: OrbitalSchema = orbital_core::json_value::from_json_value(&json!({
             "name": "from-list",
             "orbitals": [{
                 "name": "DoorOrbital",
@@ -731,13 +731,13 @@ mod crypto_vectors {
 
     fn vectors(group: &str) -> Vec<Json> {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/crypto/vectors.json");
-        let all: Json = serde_json::from_str(&std::fs::read_to_string(&path).expect("crypto vectors")).expect("vectors json");
+        let all: Json = orbital_core::json_value::from_json_str(&std::fs::read_to_string(&path).expect("crypto vectors")).expect("vectors json");
         all[group].as_array().unwrap_or_else(|| panic!("no {group} vectors")).clone()
     }
 
     /// `VERIFIED true|false` or `REFUSED <verdict>` from a verify operator's closed verdict.
     fn operator_verdict(form: Json) -> String {
-        let expr: orbital_core::schema::SExpression = serde_json::from_value(form).expect("s-expression");
+        let expr: orbital_core::schema::SExpression = orbital_core::json_value::from_json_value(&form).expect("s-expression");
         match orbital_core::evaluator::eval_expr(&expr, &orbital_core::evaluator::BindingContext::default()) {
             Ok(Value::String(verdict)) => match verdict.as_str() {
                 "valid" => "VERIFIED true".to_string(),
@@ -797,7 +797,7 @@ mod bytes_parity {
     }
 
     fn operator(form: &Json) -> String {
-        let expr: SExpression = serde_json::from_value(form.clone()).expect("s-expression");
+        let expr: SExpression = orbital_core::json_value::from_json_value(&form).expect("s-expression");
         match eval_expr(&expr, &BindingContext::default()) {
             Ok(v) => shown(&serde_json::to_value(v).expect("json")),
             Err(_) => "REFUSED".into(),
@@ -892,7 +892,7 @@ mod bytes_parity {
         let failures: Vec<String> = RECORDED
             .iter()
             .filter_map(|(form, want)| {
-                let form: Json = serde_json::from_str(form).expect("form");
+                let form: Json = orbital_core::json_value::from_json_str(form).expect("form");
                 let got = operator(&form);
                 (got != *want).then(|| format!("{form}: recorded {want}, operator {got}"))
             })
@@ -941,7 +941,7 @@ mod finite_fs_completion {
             "cli-boundary", std::iter::empty::<(&str, &str)>(), &body, Some(Duration::from_secs(30)),
         );
         let entries = std::fs::read_to_string(&trace).expect("read full dispatch trace")
-            .lines().map(|line| serde_json::from_str(line).expect("trace JSON")).collect();
+            .lines().map(|line| orbital_core::json_value::from_json_str(line).expect("trace JSON")).collect();
         eprintln!("finite FS {name}: status {}, complete trace {}", answer.status, trace.display());
         (answer, entries)
     }
@@ -971,7 +971,7 @@ mod finite_fs_completion {
     fn inline_is_capped(name: &str) {
         let (answer, entries) = run(name, &[]);
         assert_eq!(answer.status, 500, "{name}: {}", answer.body);
-        let body: Json = serde_json::from_str(&answer.body).expect("structured cascade refusal");
+        let body: Json = orbital_core::json_value::from_json_str(&answer.body).expect("structured cascade refusal");
         assert_eq!(body["code"], "cascade-cap");
         assert_eq!(body["cap"], 2000);
         assert!(event_dispatches(&entries, "FINISHED").is_empty());
@@ -1198,7 +1198,7 @@ mod orbital_ref_closure_findings {
         orbital_test_support::link_installed_language(&dir, Path::new(env!("CARGO_MANIFEST_DIR")));
         let std_stub = dir.join("node_modules/@almadar/std");
         let manifest_path = std_stub.join("package.json");
-        let mut manifest: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&manifest_path).expect("std manifest")).expect("json");
+        let mut manifest: serde_json::Value = orbital_core::json_value::from_json_str(&std::fs::read_to_string(&manifest_path).expect("std manifest")).expect("json");
         manifest["orb"] = serde_json::json!({ "prefix": "almadar-std", "source": "behaviors/lolo", "language": ">=0.0.0" });
         std::fs::write(&manifest_path, manifest.to_string()).expect("std manifest");
         orbital_test_support::link_installed_std_programs(&std_stub, Path::new(env!("CARGO_MANIFEST_DIR")));
@@ -1452,7 +1452,7 @@ mod typed_boundary_differential {
     }
 
     fn dispatch(kernel: &RuntimeKernel, store: &Arc<dyn EntitySource>, trait_name: &str, event: &str, payload: &Json) -> Result<(), String> {
-        let value: Value = serde_json::from_value(payload.clone()).map_err(|e| format!("payload does not convert: {e}"))?;
+        let value: Value = orbital_core::json_value::from_json_value(&payload).map_err(|e| format!("payload does not convert: {e}"))?;
         let progress = kernel.start_dispatch(trait_name, None, event, value, None, None).map_err(|e| format!("dispatch refused: {e}"))?;
         let answer = |request: &IoRequest| BlockingHost { source: store.as_ref(), service: None, substrate: None }.answer(request);
         let outcomes = drive_blocking(kernel, progress, &answer).map_err(|e| format!("dispatch failed: {e}"))?;

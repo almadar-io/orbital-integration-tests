@@ -259,7 +259,7 @@ fn the_checker_and_the_dispatch_validator_accept_and_refuse_the_same_scalars() {
             knob["values"] = values.clone();
             member["values"] = values.clone();
         }
-        let schema: OrbitalSchema = serde_json::from_value(json!({
+        let schema: OrbitalSchema = orbital_core::json_value::from_json_value(&json!({
             "name": "Twin",
             "version": "0.1.0",
             "orbitals": [{
@@ -287,8 +287,8 @@ fn the_checker_and_the_dispatch_validator_accept_and_refuse_the_same_scalars() {
             .iter()
             .any(|e| e.code == ErrorCode::TraitConfigShapeMismatch);
 
-        let field: PayloadField = serde_json::from_value(member).expect("payload field deserializes");
-        let payload = serde_json::from_value(json!({ "n": value.clone() })).expect("payload deserializes");
+        let field: PayloadField = orbital_core::json_value::from_json_value(&member).expect("payload field deserializes");
+        let payload = orbital_core::json_value::from_json_value(&json!({ "n": value.clone() })).expect("payload deserializes");
         let dispatch_accepts = validate_event_payload("GO", &payload, &[field]).is_empty();
         assert_eq!(
             checker_accepts, dispatch_accepts,
@@ -303,8 +303,8 @@ fn the_checker_and_the_dispatch_validator_accept_and_refuse_the_same_scalars() {
         if let Some(values) = values {
             member["values"] = values.clone();
         }
-        let field: PayloadField = serde_json::from_value(member).unwrap();
-        let payload = serde_json::from_value(json!({ "n": value })).unwrap();
+        let field: PayloadField = orbital_core::json_value::from_json_value(&member).unwrap();
+        let payload = orbital_core::json_value::from_json_value(&json!({ "n": value })).unwrap();
         validate_event_payload("GO", &payload, &[field]).is_empty()
     };
     assert!(accepts("string", Some(&enum_values), json!("on")), "a declared member is accepted");
@@ -404,9 +404,9 @@ orbital Twin {{
             both_refuse += 1;
             continue;
         };
-        let field: PayloadField = serde_json::from_value(member.clone())
+        let field: PayloadField = orbital_core::json_value::from_json_value(&member)
             .unwrap_or_else(|e| panic!("`{ty}` payload member {member}: {e}"));
-        let payload = serde_json::from_value(json!({ "n": value.clone() })).expect("payload deserializes");
+        let payload = orbital_core::json_value::from_json_value(&json!({ "n": value.clone() })).expect("payload deserializes");
         let dispatch_accepts = validate_event_payload("GO", &payload, &[field]).is_empty();
         if checker_accepts && !dispatch_accepts {
             disagreements.push(format!("`{ty}` = {value}: the checker accepts what dispatch refuses"));
@@ -518,9 +518,9 @@ orbital Twin {{
             .any(|e| emit_codes.contains(&e.code));
         let lowered = serde_json::to_value(&schema).expect("schema serializes");
         let member = lowered["orbitals"][0]["traits"][0]["emits"][0]["payloadSchema"][0].clone();
-        let field: PayloadField = serde_json::from_value(member.clone())
+        let field: PayloadField = orbital_core::json_value::from_json_value(&member)
             .unwrap_or_else(|e| panic!("`{ty}` payload member {member}: {e}"));
-        let payload = serde_json::from_value(json!({ "n": value.clone() })).expect("payload deserializes");
+        let payload = orbital_core::json_value::from_json_value(&json!({ "n": value.clone() })).expect("payload deserializes");
         let dispatch_accepts = validate_event_payload("GO", &payload, &[field]).is_empty();
         if checker_accepts && !dispatch_accepts {
             disagreements.push(format!("`{ty}` = {value}: validate accepts the emit, dispatch refuses it"));

@@ -19,7 +19,7 @@ use orbital_core::schema::OrbitalSchema;
 use orbital_shell_typescript::TypeScriptBackend;
 
 fn menu_schema() -> OrbitalSchema {
-    serde_json::from_value(serde_json::json!({
+    orbital_core::json_value::from_json_value(&serde_json::json!({
         "name": "MenuApp",
         "version": "1.0.0",
         "orbitals": [

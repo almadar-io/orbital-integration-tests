@@ -87,7 +87,7 @@ fn android_snapshot_baselines_match_fixtures() {
 fn dioxus_unsupported(
     registry: &orbital_client_dioxus::registry::DioxusPatternRegistry,
 ) -> Vec<String> {
-    let registry_json: serde_json::Value = serde_json::from_str(
+    let registry_json: serde_json::Value = orbital_core::json_value::from_json_str(
         &orbital_core::language_data::language_data()
             .unwrap_or_else(|e| panic!("{}: {e}", e.code()))
             .patterns,
@@ -177,7 +177,7 @@ fn dioxus_declared_incomplete_patterns_match_unpainted_and_partial() {
 
 #[test]
 fn dioxus_stub_fixtures_use_only_declared_contract_props() {
-    let registry_json: serde_json::Value = serde_json::from_str(
+    let registry_json: serde_json::Value = orbital_core::json_value::from_json_str(
         &orbital_core::language_data::language_data()
             .unwrap_or_else(|e| panic!("{}: {e}", e.code()))
             .patterns,
@@ -191,7 +191,7 @@ fn dioxus_stub_fixtures_use_only_declared_contract_props() {
             continue;
         }
         let fixture: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
+            orbital_core::json_value::from_json_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
         let props = fixture.as_object().expect("pattern fixture object");
         assert_eq!(fixture["type"].as_str(), Some(*name), "{name}: fixture type");
         let schema = patterns[*name]["propsSchema"]

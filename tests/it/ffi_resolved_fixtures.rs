@@ -19,7 +19,7 @@ fn read(rel: &str) -> String {
 /// `01-basic-entity.orb` plus a clone of its orbital under `SECOND_ORBITAL`
 /// (entity `Chore`, trait named `second_trait`).
 fn two_orbital_program(second_trait: &str) -> String {
-    let mut program: serde_json::Value = serde_json::from_str(&read("test-schemas/01-basic-entity.orb")).unwrap();
+    let mut program: serde_json::Value = orbital_core::json_value::from_json_str(&read("test-schemas/01-basic-entity.orb")).unwrap();
     let first = program["orbitals"][0].clone();
     let cloned = serde_json::to_string(&first)
         .unwrap()
@@ -28,7 +28,7 @@ fn two_orbital_program(second_trait: &str) -> String {
         .replace("Task", "Chore")
         .replace("tasks", "chores")
         .replace("\u{0}TRAIT\u{0}", second_trait);
-    let mut second: serde_json::Value = serde_json::from_str(&cloned).unwrap();
+    let mut second: serde_json::Value = orbital_core::json_value::from_json_str(&cloned).unwrap();
     second["pages"] = serde_json::json!([]);
     program["orbitals"].as_array_mut().unwrap().push(second);
     program.to_string()

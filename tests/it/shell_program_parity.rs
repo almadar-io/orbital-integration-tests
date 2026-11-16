@@ -117,7 +117,7 @@ fn through_program(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
             },
             options: BTreeMap::new(),
         };
-        let wire: GenerateRequest = serde_json::from_str(&serde_json::to_string(&request).unwrap()).unwrap();
+        let wire: GenerateRequest = orbital_core::json_value::from_json_str(&serde_json::to_string(&request).unwrap()).unwrap();
         match handle(program.as_ref(), &wire, out) {
             ShellReply::Ok(response) => Ok(response),
             ShellReply::Error(failure) => Err(GenerateError::Backend(failure.message)),
@@ -225,7 +225,7 @@ fn a_served_program_in_full_mode_is_written_as_the_linked_shell_wrote_it() {
             },
             options: BTreeMap::new(),
         };
-        let wire: GenerateRequest = serde_json::from_str(&serde_json::to_string(&request).unwrap()).unwrap();
+        let wire: GenerateRequest = orbital_core::json_value::from_json_str(&serde_json::to_string(&request).unwrap()).unwrap();
         match handle(&TypeScriptProgram, &wire, out) {
             ShellReply::Ok(response) => Ok(response),
             ShellReply::Error(failure) => Err(GenerateError::Backend(failure.message)),

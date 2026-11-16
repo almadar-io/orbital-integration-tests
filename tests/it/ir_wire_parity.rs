@@ -47,7 +47,7 @@ fn compile(path: &Path) -> OirModule {
 }
 
 fn over_the_wire(module: &OirModule) -> OirModule {
-    serde_json::from_str(&serde_json::to_string(module).expect("serialize IR")).expect("deserialize IR")
+    orbital_core::json_value::from_json_str(&serde_json::to_string(module).expect("serialize IR")).expect("deserialize IR")
 }
 
 fn backends() -> Vec<(&'static str, Box<dyn Backend>)> {

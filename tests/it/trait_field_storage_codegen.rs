@@ -9,7 +9,7 @@ use orbital_core::schema::OrbitalSchema;
 use orbital_shell_typescript::TypeScriptBackend;
 
 fn schema(entity_fields: serde_json::Value) -> OrbitalSchema {
-    serde_json::from_value(serde_json::json!({
+    orbital_core::json_value::from_json_value(&serde_json::json!({
         "name": "PickerApp",
         "version": "1.0.0",
         "orbitals": [{

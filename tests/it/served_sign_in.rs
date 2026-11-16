@@ -165,7 +165,7 @@ fn who(port: u16, client: &str, bearer: Option<&str>) -> String {
     let body = json!({ "event": "WHO_AM_I", "targetTrait": "Asker", "clientId": client, "payload": {} }).to_string();
     let (code, answer) = request(&mut stream, "POST", "/api/orbitals/Whoami/events", bearer, &body);
     assert_eq!(code, 200, "{answer}");
-    let answer: Json = serde_json::from_str(&answer).expect("an EventResponse");
+    let answer: Json = orbital_core::json_value::from_json_str(&answer).expect("an EventResponse");
     answer["emittedEvents"].as_array().into_iter().flatten()
         .find(|e| e["event"] == "ANSWERED")
         .and_then(|e| e["payload"]["who"].as_str().map(str::to_string))
@@ -187,7 +187,7 @@ fn a_cold_key_cache_sign_in_binds_the_viewer_and_keeps_its_connection_and_stream
     let (code, minted) = request(&mut kept, "POST", "/api/events/ticket?clientId=tab-1", Some(&bearer), "");
     assert_eq!(code, 200, "the signed-in mint answers: {minted}");
     assert!(fetches.load(Ordering::SeqCst) >= 1, "the key cache started cold, so the key set was fetched");
-    let ticket = serde_json::from_str::<Json>(&minted).expect("a ticket body")["ticket"].as_str().expect("a ticket").to_string();
+    let ticket = orbital_core::json_value::from_json_str::<Json>(&minted).expect("a ticket body")["ticket"].as_str().expect("a ticket").to_string();
 
     let (code, _) = request(&mut kept, "GET", "/api/health", None, "");
     assert_eq!(code, 200, "the mint's keep-alive connection answers its next request (G-CROSS-607)");

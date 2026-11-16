@@ -10,7 +10,7 @@ fn templates_dir() -> PathBuf {
 }
 
 fn json(path: &Path) -> serde_json::Value {
-    serde_json::from_str(&std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display())))
+    orbital_core::json_value::from_json_str(&std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display())))
         .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
