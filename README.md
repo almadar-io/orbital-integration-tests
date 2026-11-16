@@ -36,10 +36,10 @@ cargo test
 | Path | Contents |
 |---|---|
 | `src/lib.rs` | `orbital_test_support`: resolving the installed behavior packages and building minimal fake ones for tests |
-| `tests/shell_program_parity.rs` | A shell program writes the same app as the in-process shell |
-| `tests/ir_wire_parity.rs`, `tests/lolo_parity_harness.rs`, `tests/ffi_resolved_fixtures.rs` | IR, `.lolo` and FFI parity against shared fixtures |
-| `tests/workspace_grepwall.rs` | Single-owner gates: a canonical helper must have exactly one home |
-| `tests/native_*.rs`, `tests/gradle_build_smoke.rs`, `tests/xcode_build_smoke.rs`, `tests/shell_template_toolchain.rs` | Native shell and template checks |
+| `tests/it/shell_program_parity.rs` | A shell program writes the same app as the in-process shell |
+| `tests/it/ir_wire_parity.rs`, `tests/it/lolo_parity_harness.rs`, `tests/it/ffi_resolved_fixtures.rs` | IR, `.lolo` and FFI parity against shared fixtures |
+| `tests/it/workspace_grepwall.rs` | Single-owner gates: a canonical helper must have exactly one home |
+| `tests/it/native_*.rs`, `tests/gradle_build_smoke.rs`, `tests/xcode_build_smoke.rs`, `tests/it/shell_template_toolchain.rs` | Native shell and template checks |
 | `fixtures/`, `tests/fixtures/` | Programs and expected outputs |
 
 Some tests read `test-schemas/` and other paths of the monorepo checkout, and the native build smokes need Gradle or Xcode, so a full run is a monorepo job.

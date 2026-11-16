@@ -4,7 +4,7 @@
 
 use orbital_core::generate::{Backend, GeneratedOutput, ShellMode};
 use orbital_core::ir::OirModule;
-#[path = "common/test_schemas.rs"]
+#[path = "../common/test_schemas.rs"]
 mod test_schemas;
 
 use std::path::{Path, PathBuf};

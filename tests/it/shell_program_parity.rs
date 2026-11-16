@@ -9,7 +9,7 @@ use orbital_core::shell_protocol::{handle, GenerateRequest, ShellProgram, ShellR
 use orbital_shell_typescript::shell_program::TypeScriptProgram;
 use orbital_shell_typescript::{express_shell, TypeScriptBackend};
 use std::collections::{BTreeMap, BTreeSet};
-#[path = "common/test_schemas.rs"]
+#[path = "../common/test_schemas.rs"]
 mod test_schemas;
 
 use std::path::{Path, PathBuf};

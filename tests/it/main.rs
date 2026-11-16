@@ -1,0 +1,15 @@
+mod catalog_parity;
+mod ffi_resolved_fixtures;
+mod ir_wire_parity;
+mod lolo_parity_harness;
+mod native_device_scripts;
+mod native_snapshot_baselines;
+mod nominalize_ts_diff;
+mod recursive_named_struct_codegen;
+mod served_sign_in;
+mod shell_program_parity;
+mod shell_template_toolchain;
+mod template_tsconfig;
+mod trait_field_storage_codegen;
+mod type_mapping_classification;
+mod workspace_grepwall;

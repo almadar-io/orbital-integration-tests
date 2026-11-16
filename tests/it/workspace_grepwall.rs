@@ -5,7 +5,7 @@
 use std::fs;
 use std::path::Path;
 
-#[path = "../../orbital-shell-typescript/tests/common/grep_helpers.rs"]
+#[path = "../../../orbital-shell-typescript/tests/common/grep_helpers.rs"]
 mod grep_helpers;
 use grep_helpers::{count, strip_test_blocks, ts_escape_hatch_uses};
 
