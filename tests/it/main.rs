@@ -1,4 +1,5 @@
 mod catalog_parity;
+mod client_lolo_kernel;
 mod ffi_resolved_fixtures;
 mod ir_wire_parity;
 mod lolo_parity_harness;
