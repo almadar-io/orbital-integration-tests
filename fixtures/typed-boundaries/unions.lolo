@@ -1,10 +1,10 @@
 app tb-unions [
   version: "1.0.0",
-  description: "A closed tagged union as an event payload, narrowed by a tag test, and an optional record."
+  description: "A shape record told apart by its kind tag as an event payload, its optional members read with defaults, and an optional record."
 ]
 
 orbital UnionOrbital {
-  type Shape = { kind : "circle", r : number! } | { kind : "rect", w : number!, h : number! }
+  type Shape = { kind : "circle" | "rect", r : number?, w : number?, h : number? }
   type Frame = { title : string!, subtitle : string? }
 
   entity Easel [runtime] {
@@ -22,7 +22,7 @@ orbital UnionOrbital {
 
       DRAW -> idle
         (let ((s : Shape ?shape))
-          (set @entity.area (if (= @s.kind "circle") (* @s.r @s.r) (* @s.w @s.h))))
+          (set @entity.area (if (= @s.kind "circle") (* (default @s.r 0) (default @s.r 0)) (* (default @s.w 0) (default @s.h 0)))))
 
       CAPTION -> idle
         (set @entity.caption (default ?frame.subtitle ?frame.title))

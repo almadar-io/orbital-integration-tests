@@ -717,7 +717,7 @@ fn control_a_fresh_guest_opened_after_a_failed_step_mounts() {
 /// Diagnostic, run by hand: boots the launchpad on a behavior route as `orb launchpad` serves it and prints what the
 /// catalog data trait answered.
 #[test]
-#[ignore]
+#[ignore = "tool: boots the launchpad on a behavior route and prints what the catalog data trait answered"]
 fn launchpad_catalog_listing_settles() {
     let path = workspace_root().join(LAUNCHPAD);
     let program = resolve(&path).unwrap();
@@ -752,7 +752,7 @@ fn launchpad_catalog_listing_settles() {
 /// Diagnostic, run by hand: the launchpad's browser kernel (as the wasm client runs it) opens the playground tab and
 /// prints whether that dispatch posts a server leg, which is what lets the server's catalog trait list.
 #[test]
-#[ignore]
+#[ignore = "tool: prints whether the launchpad playground open posts a server leg"]
 fn launchpad_playground_open_posts_a_server_leg() {
     let program = resolve(&workspace_root().join(LAUNCHPAD)).unwrap();
     let browser = orbital_core::embed::EmbeddedKernel::new(program, "c1").unwrap();
@@ -807,7 +807,7 @@ fn control_the_launchpad_home_mount_posts_no_hop() {
 /// Diagnostic, run by hand: the launchpad's browser kernel mounting a behavior deep link, with the route params a
 /// client mount carries, and what each seed emitted and moved.
 #[test]
-#[ignore]
+#[ignore = "tool: prints what each seed of a launchpad behavior deep-link mount emitted and moved"]
 fn launchpad_behavior_deep_link_mount() {
     let program = resolve(&workspace_root().join(LAUNCHPAD)).unwrap();
     let browser = orbital_core::embed::EmbeddedKernel::new(program, "c1").unwrap();
@@ -867,7 +867,7 @@ fn launchpad_behavior_deep_link_mount() {
 /// Diagnostic, run by hand: opens each behavior of `CATALOG_SEED_PROBE` (comma-separated `.lolo` paths) as the catalog
 /// does, on its first route page, and prints how many rows each entity holds after the mount.
 #[test]
-#[ignore]
+#[ignore = "tool: prints the rows each entity of the CATALOG_SEED_PROBE behaviors holds after mount"]
 fn catalog_guest_seeded_rows() {
     orbital_core::logging::init();
     let grants = launchpad_guest_grants().unwrap();
@@ -1142,7 +1142,7 @@ fn self_dispatch_guest() -> Json {
 }
 
 #[test]
-#[ignore]
+#[ignore = "tool: opens a guest that dispatches a keyed self-call and prints whether its rows settle over five seconds"]
 fn a_guest_keyed_self_dispatch_settles() {
     let opener = Opener::new(&json!({ "kernel": [{ "target": "guest", "kinds": ["spawn"] }], "env": ["HOME"] })).unwrap();
     let program = match std::env::var("SELF_DISPATCH_LOLO") {

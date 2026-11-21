@@ -304,6 +304,10 @@ const EXEC_DESIGN_RULES: &[(&str, &str)] = &[
 /// EXEC rules proven outside orbital-core: the test that proves each.
 const EXEC_RULES_PROVEN_ELSEWHERE: &[(&str, &str)] = &[
     (
+        "EXEC-GPU-7",
+        "orbital-canvas crates/render/src/gpu/tests.rs (a_live_buffer_resolves_for_drawing_and_control_released_or_on_another_device_it_does_not)",
+    ),
+    (
         "EXEC-ENDPOINT-2",
         "orbital-compiler phases/validation/ui/page.rs",
     ),
@@ -362,7 +366,6 @@ const EXEC_RULES_PENDING: &[&str] = &[
     "EXEC-EVAL-5",     // static argument typing: `orb validate`
     "EXEC-LANG-1",     // brackets are data: the orbital-lolo parser
     "EXEC-CONC-3",     // keyed completions on real host threads: the native os host
-    "EXEC-CONC-6",     // os/spawn, os/wait, os/kill and std-supervisor: the native os host and std
     "EXEC-HTTP-1",     // the http driver is archived; the std http atom's twin parity proves it
     "EXEC-HTTP-4",     // the redis driver is archived; the std redis atom's twin parity proves it
     "EXEC-HTTP-5",     // the postgres driver is archived; the std postgres atom's twin parity proves it
@@ -549,7 +552,8 @@ fn ignore_sites(path: &str, source: &str) -> Vec<(String, bool)> {
     let mut n = 0;
     while n < lines.len() {
         let trimmed = lines[n].trim_start();
-        if !trimmed.starts_with("#[ignore") {
+        let is_ignore = ["#[ignore]", "#[ignore ", "#[ignore="].iter().any(|form| trimmed.starts_with(form));
+        if !is_ignore {
             n += 1;
             continue;
         }
@@ -655,4 +659,13 @@ fn ignore_scan_reads_codes_from_reasons_and_comments() {
     assert_eq!(find("tool_without_description"), Some(false));
     assert_eq!(find("tool_with_blank_description"), Some(false));
     assert_eq!(find("tool_lookalike"), Some(false));
+}
+
+#[test]
+fn an_attribute_whose_name_starts_with_ignore_is_not_a_test_ignore() {
+    let source = "#[ignore_malloc_size_of = \"measured elsewhere\"]\nfn a() {}\n#[ignore = \"G-CROSS-1: why\"]\nfn b() {}\n#[ignore]\nfn c() {}\n";
+    assert_eq!(
+        ignore_sites("f.rs", source),
+        vec![("f.rs::b".to_string(), true), ("f.rs::c".to_string(), false)]
+    );
 }

@@ -148,8 +148,8 @@ fn dioxus_declared_incomplete_patterns_match_unpainted_and_partial() {
             "animated-graphic", "box", "breadcrumb", "data-grid", "data-list",
             "empty-state", "filter-group", "form-actions", "icon", "input-group",
             "law-reference-tooltip", "loading-state", "menu", "modal", "navigation",
-            "pagination", "pattern-tile", "search-input", "svg-connection", "svg-flow",
-            "svg-node", "svg-pulse",
+            "pagination", "pattern-tile", "score-display", "search-input", "svg-connection", "svg-flow",
+            "svg-node", "svg-pulse", "video-embed",
         ]
         .map(str::to_string),
         "default partial paint paths"

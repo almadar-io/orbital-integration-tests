@@ -59,14 +59,18 @@ fn in_process(shell: &str, path: &Path, out: &Path) -> Result<(), String> {
         }
         "android" => {
             orbital_shell_android::require_renderer_pack().map_err(|err| err.to_string())?;
-            let backend = orbital_shell_android::AndroidBackend::new().with_resolved_schema(resolved(path, &options));
+            let backend = orbital_shell_android::AndroidBackend::new()
+                .with_resolved_schema(resolved(path, &options))
+                .with_language(orbital_core::language_data::language_bundle_json().map_err(|err| err.to_string())?);
             generate_from_file_with_source(path, path, out, &orbital_shell_android::AndroidShell::new(), &backend, &options).map_err(e)?;
         }
         "ios" => {
             use orbital_core::shell::Shell as _;
             orbital_shell_ios::require_renderer_pack().map_err(|err| err.to_string())?;
             let shell = orbital_shell_ios::IosShell::new();
-            let backend = orbital_shell_ios::IosBackend::new().with_resolved_schema(resolved(path, &options));
+            let backend = orbital_shell_ios::IosBackend::new()
+                .with_resolved_schema(resolved(path, &options))
+                .with_language(orbital_core::language_data::language_bundle_json().map_err(|err| err.to_string())?);
             let result = generate_from_file_with_source(path, path, out, &shell, &backend, &options).map_err(e)?;
             shell.validate_structure(out).map_err(|err| err.to_string())?;
             let manifest: Vec<String> = result.files.iter().map(|f| f.path.clone()).collect();

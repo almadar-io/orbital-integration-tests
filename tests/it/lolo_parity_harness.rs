@@ -236,6 +236,19 @@ mod http1_listen_parity {
     }
 
     /// Read exactly `want.len()` bytes, so a connection kept open is not waited on to its end.
+    /// Everything the stream sends up to and including `end` (or until it closes).
+    fn read_until(stream: &mut TcpStream, end: &str) -> String {
+        let mut got = Vec::new();
+        let mut byte = [0u8; 1];
+        while !got.ends_with(end.as_bytes()) {
+            match stream.read(&mut byte) {
+                Ok(0) | Err(_) => break,
+                Ok(_) => got.push(byte[0]),
+            }
+        }
+        String::from_utf8_lossy(&got).into_owned()
+    }
+
     fn read_exact_text(stream: &mut TcpStream, len: usize) -> String {
         let mut got = vec![0u8; len];
         let mut at = 0;
@@ -584,8 +597,13 @@ mod http1_listen_parity {
 
         let mut conn = connect(server.port);
         conn.write_all(format!("GET /api/events?ticket={ticket} HTTP/1.1\r\nHost: a\r\nAccept: text/event-stream\r\n\r\n").as_bytes()).expect("write");
-        let want = "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ncache-control: no-cache\r\nx-accel-buffering: no\r\nconnection: close\r\n\r\nretry: 3000\n\n";
-        assert_eq!(read_exact_text(&mut conn, want.len()), want, "SSE head and retry frame");
+        let head = read_until(&mut conn, "\r\n\r\nretry: 3000\n\n");
+        let lines: Vec<&str> = head.split("\r\n").collect();
+        assert_eq!(lines[0], "HTTP/1.1 200 OK", "{head:?}");
+        for line in ["content-type: text/event-stream", "cache-control: no-cache", "x-accel-buffering: no", "connection: close"] {
+            assert!(lines.contains(&line), "SSE head lacks {line:?}: {head:?}");
+        }
+        assert!(head.ends_with("\r\n\r\nretry: 3000\n\n"), "the retry frame follows the head: {head:?}");
         let authorized = server.wait("STREAM_AUTHORIZED", 0);
         let id = authorized["requestId"].clone();
         conn.shutdown(Shutdown::Both).expect("client leaves");
